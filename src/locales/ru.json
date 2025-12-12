@@ -1,0 +1,59 @@
+{
+  "app": {
+    "title": "Yakyn"
+  },
+  "home": {
+    "overdue": "Просрочено",
+    "today": "Сегодня",
+    "upcoming": "Все контакты",
+    "noContacts": "У Вас пока нет контактов",
+    "addFirst": "Добавить первый контакт"
+  },
+  "contact": {
+    "lastContact": "Последний контакт",
+    "nextReminder": "Следующее напоминание",
+    "never": "Никогда",
+    "contacted": "Связался",
+    "delete": "Удалить",
+    "confirmDelete": "Удалить контакт \"{name}\"?",
+    "deleteSuccess": "Контакт удалён",
+    "contactedSuccess": "Отлично! Следующее напоминание: {date}",
+    "daysAgo": "{days} дн. назад",
+    "inDays": "через {days} дн.",
+    "todayAt": "сегодня в {time}"
+  },
+  "add": {
+    "title": "Добавить контакт",
+    "name": "Имя",
+    "namePlaceholder": "Введите имя",
+    "frequency": "Частота напоминаний",
+    "time": "Время напоминания",
+    "save": "Сохранить",
+    "success": "Контакт добавлен!"
+  },
+  "settings": {
+    "title": "Настройки",
+    "language": "Язык",
+    "timezone": "Часовой пояс",
+    "saved": "Настройки сохранены"
+  },
+  "frequencies": {
+    "weekly": "Каждую неделю",
+    "biweekly": "Раз в 2 недели",
+    "monthly": "Раз в месяц",
+    "quarterly": "Раз в квартал"
+  },
+  "timezones": {
+    "UTC+3": "Москва (UTC+3)",
+    "UTC+5": "Ташкент (UTC+5)",
+    "UTC+6": "Алматы (UTC+6)"
+  },
+  "common": {
+    "loading": "Загрузка...",
+    "error": "Ошибка",
+    "retry": "Повторить",
+    "cancel": "Отмена",
+    "confirm": "Подтвердить",
+    "back": "Назад"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "app": {
+    "title": "Yakyn"
+  },
+  "home": {
+    "overdue": "Kechiktirilgan",
+    "today": "Bugun",
+    "upcoming": "Barcha kontaktlar",
+    "noContacts": "Sizda hali kontaktlar yo'q",
+    "addFirst": "Birinchi kontaktni qo'shish"
+  },
+  "contact": {
+    "lastContact": "So'nggi bog'lanish",
+    "nextReminder": "Keyingi eslatma",
+    "never": "Hech qachon",
+    "contacted": "Bog'landim",
+    "delete": "O'chirish",
+    "confirmDelete": "\"{name}\" kontaktini o'chirasizmi?",
+    "deleteSuccess": "Kontakt o'chirildi",
+    "contactedSuccess": "Yaxshi! Keyingi eslatma: {date}",
+    "daysAgo": "{days} kun oldin",
+    "inDays": "{days} kundan keyin",
+    "todayAt": "bugun soat {time}"
+  },
+  "add": {
+    "title": "Kontakt qo'shish",
+    "name": "Ism",
+    "namePlaceholder": "Ismni kiriting",
+    "frequency": "Eslatish chastotasi",
+    "time": "Eslatish vaqti",
+    "save": "Saqlash",
+    "success": "Kontakt qo'shildi!"
+  },
+  "settings": {
+    "title": "Sozlamalar",
+    "language": "Til",
+    "timezone": "Vaqt zonasi",
+    "saved": "Sozlamalar saqlandi"
+  },
+  "frequencies": {
+    "weekly": "Har hafta",
+    "biweekly": "2 haftada bir",
+    "monthly": "Oyiga bir",
+    "quarterly": "3 oyda bir"
+  },
+  "timezones": {
+    "UTC+3": "Moskva (UTC+3)",
+    "UTC+5": "Toshkent (UTC+5)",
+    "UTC+6": "Olma-ota (UTC+6)"
+  },
+  "common": {
+    "loading": "Yuklanmoqda...",
+    "error": "Xatolik",
+    "retry": "Qayta urinish",
+    "cancel": "Bekor qilish",
+    "confirm": "Tasdiqlash",
+    "back": "Orqaga"
+  }
+}
