@@ -6,7 +6,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: "sm" | "md" | "lg";
   fullWidth?: boolean;
 }
-
+ 
 export function Button({
   children,
   variant = "primary",
