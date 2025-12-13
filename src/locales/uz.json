@@ -20,7 +20,14 @@
     "contactedSuccess": "Yaxshi! Keyingi eslatma: {date}",
     "daysAgo": "{days} kun oldin",
     "inDays": "{days} kundan keyin",
-    "todayAt": "bugun soat {time}"
+    "todayAt": "bugun soat {time}",
+    "notes": "Eslatmalar",
+    "birthday": "Tug'ilgan kun",
+    "noBirthday": "Ko'rsatilmagan",
+    "snooze": "Keyinga qoldirish",
+    "snooze1h": "1 soat",
+    "snooze3h": "3 soat",
+    "snoozeTomorrow": "Ertaga"
   },
   "add": {
     "title": "Kontakt qo'shish",
@@ -28,6 +35,10 @@
     "namePlaceholder": "Ismni kiriting",
     "frequency": "Eslatish chastotasi",
     "time": "Eslatish vaqti",
+    "notes": "Eslatmalar",
+    "notesPlaceholder": "Qanday tanishdingiz, nima haqida gaplashasiz...",
+    "birthday": "Tug'ilgan kun",
+    "birthdayOptional": "(ixtiyoriy)",
     "save": "Saqlash",
     "success": "Kontakt qo'shildi!"
   },

@@ -20,7 +20,14 @@
     "contactedSuccess": "Отлично! Следующее напоминание: {date}",
     "daysAgo": "{days} дн. назад",
     "inDays": "через {days} дн.",
-    "todayAt": "сегодня в {time}"
+    "todayAt": "сегодня в {time}",
+    "notes": "Заметки",
+    "birthday": "День рождения",
+    "noBirthday": "Не указан",
+    "snooze": "Отложить",
+    "snooze1h": "1 час",
+    "snooze3h": "3 часа",
+    "snoozeTomorrow": "Завтра"
   },
   "add": {
     "title": "Добавить контакт",
@@ -28,6 +35,10 @@
     "namePlaceholder": "Введите имя",
     "frequency": "Частота напоминаний",
     "time": "Время напоминания",
+    "notes": "Заметки",
+    "notesPlaceholder": "Как познакомились, о чём поговорить...",
+    "birthday": "День рождения",
+    "birthdayOptional": "(опционально)",
     "save": "Сохранить",
     "success": "Контакт добавлен!"
   },

@@ -27,16 +27,24 @@ export function useContacts() {
   const createContact = async (
     name: string,
     frequency: Frequency,
-    reminderTime: string
+    reminderTime: string,
+    notes?: string,
+    birthday?: string
   ) => {
-    const response = await contactsApi.create({ name, frequency, reminderTime });
+    const response = await contactsApi.create({ name, frequency, reminderTime, notes, birthday });
     setContacts((prev) => [...prev, response.contact]);
     return response.contact;
   };
 
   const updateContact = async (
     id: number,
-    data: { name?: string; frequency?: Frequency; reminderTime?: string }
+    data: {
+      name?: string;
+      frequency?: Frequency;
+      reminderTime?: string;
+      notes?: string | null;
+      birthday?: string | null;
+    }
   ) => {
     const response = await contactsApi.update(id, data);
     setContacts((prev) =>
@@ -52,6 +60,14 @@ export function useContacts() {
 
   const markContacted = async (id: number) => {
     const response = await contactsApi.markContacted(id);
+    setContacts((prev) =>
+      prev.map((c) => (c.id === id ? response.contact : c))
+    );
+    return response.contact;
+  };
+
+  const snoozeContact = async (id: number, hours: number | "tomorrow") => {
+    const response = await contactsApi.snooze(id, hours);
     setContacts((prev) =>
       prev.map((c) => (c.id === id ? response.contact : c))
     );
@@ -75,5 +91,6 @@ export function useContacts() {
     updateContact,
     deleteContact,
     markContacted,
+    snoozeContact,
   };
 }

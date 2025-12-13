@@ -6,6 +6,13 @@ import { useTranslation } from "../hooks/useTranslation";
 import { Button } from "../components/ui/Button";
 import type { Frequency, Language } from "../types";
 
+// SVG Icons
+const BackIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+  </svg>
+);
+
 const FREQUENCIES: Frequency[] = ["weekly", "biweekly", "monthly", "quarterly"];
 const TIMES = ["08:00", "09:00", "10:00", "12:00", "14:00", "18:00", "20:00", "21:00", "22:00"];
 
@@ -19,7 +26,9 @@ export function AddContactPage() {
 
   const [name, setName] = useState("");
   const [frequency, setFrequency] = useState<Frequency>("weekly");
-  const [time, setTime] = useState("10:00");
+  const [reminderTime, setReminderTime] = useState("10:00");
+  const [notes, setNotes] = useState("");
+  const [birthday, setBirthday] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,7 +43,13 @@ export function AddContactPage() {
     try {
       setLoading(true);
       setError(null);
-      await createContact(name.trim(), frequency, time);
+      await createContact(
+        name.trim(),
+        frequency,
+        reminderTime,
+        notes.trim() || undefined,
+        birthday || undefined
+      );
       navigate("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create contact");
@@ -49,10 +64,10 @@ export function AddContactPage() {
       <header className="sticky top-0 z-10 bg-white border-b border-gray-100 px-4 py-3">
         <div className="flex items-center">
           <button
-            className="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-lg mr-3"
+            className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg mr-3"
             onClick={() => navigate(-1)}
           >
-            ←
+            <BackIcon />
           </button>
           <h1 className="text-lg font-semibold">{t("add.title")}</h1>
         </div>
@@ -103,21 +118,48 @@ export function AddContactPage() {
             {t("add.time")}
           </label>
           <div className="grid grid-cols-3 gap-2">
-            {TIMES.map((t) => (
+            {TIMES.map((timeOption) => (
               <button
-                key={t}
+                key={timeOption}
                 type="button"
                 className={`px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${
-                  time === t
+                  reminderTime === timeOption
                     ? "bg-amber-500 text-white border-amber-500"
                     : "bg-white text-gray-700 border-gray-200 hover:border-amber-300"
                 }`}
-                onClick={() => setTime(t)}
+                onClick={() => setReminderTime(timeOption)}
               >
-                {t}
+                {timeOption}
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Notes */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            {t("add.notes")} <span className="text-gray-400 font-normal">{t("add.birthdayOptional")}</span>
+          </label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder={t("add.notesPlaceholder")}
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+            rows={3}
+          />
+        </div>
+
+        {/* Birthday */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            {t("add.birthday")} <span className="text-gray-400 font-normal">{t("add.birthdayOptional")}</span>
+          </label>
+          <input
+            type="date"
+            value={birthday}
+            onChange={(e) => setBirthday(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+          />
         </div>
 
         {/* Error */}

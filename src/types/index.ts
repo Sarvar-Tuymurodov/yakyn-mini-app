@@ -7,6 +7,8 @@ export interface Contact {
   name: string;
   frequency: Frequency;
   reminderTime: string;
+  notes: string | null;
+  birthday: string | null;
   lastContactAt: string | null;
   nextReminderAt: string;
   status: ContactStatus;
