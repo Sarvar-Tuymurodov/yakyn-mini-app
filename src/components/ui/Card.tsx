@@ -9,7 +9,7 @@ interface CardProps {
 export function Card({ children, className = "", onClick }: CardProps) {
   return (
     <div
-      className={`bg-white rounded-2xl shadow-sm border border-gray-100 ${
+      className={`bg-white dark:bg-[#2d2d2d] rounded-2xl shadow-sm border border-gray-100 dark:border-[#404040] ${
         onClick ? "cursor-pointer active:scale-[0.98] transition-transform" : ""
       } ${className}`}
       onClick={onClick}
@@ -26,7 +26,7 @@ interface CardHeaderProps {
 
 export function CardHeader({ children, className = "" }: CardHeaderProps) {
   return (
-    <div className={`px-4 py-3 border-b border-gray-100 ${className}`}>
+    <div className={`px-4 py-3 border-b border-gray-100 dark:border-[#404040] ${className}`}>
       {children}
     </div>
   );

@@ -14,6 +14,7 @@ export function useContacts() {
       const response = await contactsApi.getAll();
       setContacts(response.contacts);
     } catch (err) {
+      console.error("❌ Failed to fetch contacts:", err);
       setError(err instanceof Error ? err.message : "Failed to load contacts");
     } finally {
       setLoading(false);
@@ -58,8 +59,8 @@ export function useContacts() {
     setContacts((prev) => prev.filter((c) => c.id !== id));
   };
 
-  const markContacted = async (id: number) => {
-    const response = await contactsApi.markContacted(id);
+  const markContacted = async (id: number, note?: string) => {
+    const response = await contactsApi.markContacted(id, note);
     setContacts((prev) =>
       prev.map((c) => (c.id === id ? response.contact : c))
     );

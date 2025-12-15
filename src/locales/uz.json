@@ -27,7 +27,20 @@
     "snooze": "Keyinga qoldirish",
     "snooze1h": "1 soat",
     "snooze3h": "3 soat",
-    "snoozeTomorrow": "Ertaga"
+    "snoozeTomorrow": "Ertaga",
+    "birthdayToday": "Bugun!",
+    "birthdayIn": "{days} kundan keyin",
+    "history": "Tarix",
+    "historyContacted": "Bog'landim",
+    "historyMore": "yana {count}",
+    "tabInfo": "Ma'lumot",
+    "tabHistory": "Tarix",
+    "tabSettings": "Sozlamalar",
+    "noHistory": "Hali yozuvlar yo'q",
+    "totalContacts": "marta bog'landingiz",
+    "addNote": "Eslatma qo'shish",
+    "notePlaceholder": "Nima haqida gaplashdingiz? (ixtiyoriy)",
+    "save": "Saqlash"
   },
   "add": {
     "title": "Kontakt qo'shish",
@@ -65,6 +78,7 @@
     "retry": "Qayta urinish",
     "cancel": "Bekor qilish",
     "confirm": "Tasdiqlash",
-    "back": "Orqaga"
+    "back": "Orqaga",
+    "close": "Yopish"
   }
 }

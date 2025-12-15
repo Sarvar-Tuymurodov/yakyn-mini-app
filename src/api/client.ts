@@ -31,17 +31,26 @@ export async function apiRequest<T>(
   }
 
   // For development, use X-Telegram-Id if no initData
-  if (!skipAuth && !initData && import.meta.env.DEV) {
+  if (!skipAuth && !initData) {
     const telegramId = localStorage.getItem("dev_telegram_id");
     if (telegramId) {
       (headers as Record<string, string>)["X-Telegram-Id"] = telegramId;
+    } else {
+      console.warn("⚠️ No auth available - requests may fail");
     }
   }
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...fetchOptions,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${endpoint}`, {
+      ...fetchOptions,
+      headers,
+    });
+  } catch (error) {
+    // Network error (CORS, connection refused, etc.)
+    console.error("Network error:", error);
+    throw new Error("Network error: Unable to connect to server. Please check if the backend is running.");
+  }
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));

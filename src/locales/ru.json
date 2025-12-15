@@ -27,7 +27,20 @@
     "snooze": "Отложить",
     "snooze1h": "1 час",
     "snooze3h": "3 часа",
-    "snoozeTomorrow": "Завтра"
+    "snoozeTomorrow": "Завтра",
+    "birthdayToday": "Сегодня!",
+    "birthdayIn": "через {days} дн.",
+    "history": "История",
+    "historyContacted": "Связался",
+    "historyMore": "ещё {count}",
+    "tabInfo": "Инфо",
+    "tabHistory": "История",
+    "tabSettings": "Настройки",
+    "noHistory": "Пока нет записей",
+    "totalContacts": "раз связались",
+    "addNote": "Добавить заметку",
+    "notePlaceholder": "О чём поговорили? (опционально)",
+    "save": "Сохранить"
   },
   "add": {
     "title": "Добавить контакт",
@@ -65,6 +78,7 @@
     "retry": "Повторить",
     "cancel": "Отмена",
     "confirm": "Подтвердить",
-    "back": "Назад"
+    "back": "Назад",
+    "close": "Закрыть"
   }
 }

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../hooks/useUser";
 import { useTranslation } from "../hooks/useTranslation";
@@ -35,38 +36,49 @@ const TIMEZONES = ["UTC+3", "UTC+5", "UTC+6"];
 export function SettingsPage() {
   const navigate = useNavigate();
   const { user, updateLanguage, updateTimezone } = useUser();
+  const [savingLang, setSavingLang] = useState(false);
+  const [savingTz, setSavingTz] = useState(false);
 
   const language = (user?.language ?? "ru") as Language;
   const { t } = useTranslation(language);
 
+
   const handleLanguageChange = async (lang: Language) => {
+    if (savingLang || lang === language) return;
+    setSavingLang(true);
     try {
       await updateLanguage(lang);
     } catch (error) {
       console.error("Failed to update language:", error);
+    } finally {
+      setSavingLang(false);
     }
   };
 
   const handleTimezoneChange = async (tz: string) => {
+    if (savingTz || tz === user?.timezone) return;
+    setSavingTz(true);
     try {
       await updateTimezone(tz);
     } catch (error) {
       console.error("Failed to update timezone:", error);
+    } finally {
+      setSavingTz(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#1f1f1f]">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-white border-b border-gray-100 px-4 py-3">
+      <header className="sticky top-0 z-10 bg-white dark:bg-[#2d2d2d] border-b border-gray-100 dark:border-[#404040] px-4 py-3 tg-safe-top">
         <div className="flex items-center">
           <button
-            className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg mr-3"
+            className="w-8 h-8 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#404040] rounded-lg mr-3"
             onClick={() => navigate(-1)}
           >
             <BackIcon />
           </button>
-          <h1 className="text-lg font-semibold flex items-center">
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center">
             <SettingsIcon /> {t("settings.title")}
           </h1>
         </div>
@@ -75,27 +87,29 @@ export function SettingsPage() {
       <main className="p-4 space-y-6">
         {/* Language */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             <GlobeIcon /> {t("settings.language")}
           </label>
           <Card>
             <CardContent className="p-2">
               <div className="grid grid-cols-2 gap-2">
                 <button
-                  className={`px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                  disabled={savingLang}
+                  className={`px-4 py-3 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 ${
                     language === "ru"
                       ? "bg-amber-500 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      : "bg-gray-100 dark:bg-[#404040] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#505050]"
                   }`}
                   onClick={() => handleLanguageChange("ru")}
                 >
                   Русский
                 </button>
                 <button
-                  className={`px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                  disabled={savingLang}
+                  className={`px-4 py-3 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 ${
                     language === "uz"
                       ? "bg-amber-500 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      : "bg-gray-100 dark:bg-[#404040] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#505050]"
                   }`}
                   onClick={() => handleLanguageChange("uz")}
                 >
@@ -108,7 +122,7 @@ export function SettingsPage() {
 
         {/* Timezone */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             <ClockIcon /> {t("settings.timezone")}
           </label>
           <Card>
@@ -117,10 +131,11 @@ export function SettingsPage() {
                 {TIMEZONES.map((tz) => (
                   <button
                     key={tz}
-                    className={`w-full px-4 py-3 rounded-xl text-sm font-medium text-left transition-colors ${
+                    disabled={savingTz}
+                    className={`w-full px-4 py-3 rounded-xl text-sm font-medium text-left transition-colors disabled:opacity-50 ${
                       user?.timezone === tz
                         ? "bg-amber-500 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        : "bg-gray-100 dark:bg-[#404040] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#505050]"
                     }`}
                     onClick={() => handleTimezoneChange(tz)}
                   >
@@ -133,7 +148,7 @@ export function SettingsPage() {
         </div>
 
         {/* App Info */}
-        <div className="text-center text-gray-400 text-sm pt-8">
+        <div className="text-center text-gray-400 dark:text-gray-500 text-sm pt-8">
           <p>Yakyn v1.0.0</p>
           <p className="mt-1">Держи близких близко</p>
         </div>

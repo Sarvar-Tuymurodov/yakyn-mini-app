@@ -15,6 +15,12 @@ export function useUser() {
       const response = await userApi.get();
       setUser(response.user);
       setStats(response.stats);
+
+      // Sync localStorage with server language
+      if (response.user?.language) {
+        localStorage.setItem("yakyn_language", response.user.language);
+        localStorage.setItem("yakyn_onboarded", "true");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load user");
     } finally {
@@ -29,6 +35,8 @@ export function useUser() {
   const updateLanguage = async (language: Language) => {
     const response = await userApi.updateSettings({ language });
     setUser(response.user);
+    // Sync to localStorage for immediate persistence
+    localStorage.setItem("yakyn_language", language);
     return response.user;
   };
 

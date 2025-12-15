@@ -15,6 +15,13 @@ export interface Contact {
   daysUntil: number;
 }
 
+export interface ContactHistoryEntry {
+  id: number;
+  eventType: string;
+  note: string | null;
+  createdAt: string;
+}
+
 export interface User {
   id: number;
   telegramId: string;
