@@ -1,0 +1,16 @@
+services:
+  yakyn-mini-app-dev:
+    container_name: yakyn-mini-app-dev
+    image: ghcr.io/blink-uz/yakyn-mini-app:dev-latest
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    ports:
+      - 10311:80
+    environment:
+      - NODE_ENV=development
+
+networks:
+  default:
+    external: true
+    name: yakyn_network

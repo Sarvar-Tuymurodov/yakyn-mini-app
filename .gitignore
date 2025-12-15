@@ -1,28 +1,52 @@
-# Logs
-logs
-*.log
+# Dependencies
+node_modules/
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Build output
+dist/
+dist-ssr/
+/build
+
+# testing
+/coverage
+
+# misc
+.DS_Store
+*.pem
+*.local
+
+# debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Environment files
-.env
+# env files (can opt-in for committing if needed)
+.env*
+!.env.example
+!.env.encrypted
+!.env.dev.encrypted
+!.env.stage.encrypted
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# Vercel
 .vercel
+
+# typescript
+*.tsbuildinfo

@@ -1,0 +1,17 @@
+services:
+  yakyn-mini-app-prod:
+    container_name: yakyn-mini-app-prod
+    image: ghcr.io/blink-uz/yakyn-mini-app:prod-latest
+    platform: linux/amd64
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    ports:
+      - 10312:80
+    environment:
+      - NODE_ENV=production
+
+networks:
+  default:
+    external: true
+    name: yakyn_network
