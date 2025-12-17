@@ -24,7 +24,7 @@ export function Button({
     secondary:
       "bg-amber-100 text-amber-800 hover:bg-amber-200 active:bg-amber-300",
     danger: "bg-red-500 text-white hover:bg-red-600 active:bg-red-700",
-    ghost: "bg-transparent text-amber-600 hover:bg-amber-50 active:bg-amber-100",
+    ghost: "bg-gray-200 dark:bg-[#404040] text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-[#505050] active:bg-gray-400 dark:active:bg-[#606060]",
   };
 
   const sizes = {

@@ -77,11 +77,25 @@ export function ContactCard({
       className="flex items-center gap-3 p-3 bg-white dark:bg-[#2d2d2d] rounded-2xl border border-gray-100 dark:border-[#404040] active:scale-[0.98] transition-all duration-150"
       onClick={onClick}
     >
-      {/* Avatar */}
-      <div
-        className={`w-11 h-11 rounded-full ${getAvatarColor(contact.name)} flex items-center justify-center text-white font-semibold text-sm shrink-0`}
-      >
-        {getInitials(contact.name)}
+      {/* Avatar with birthday decoration */}
+      <div className="relative shrink-0">
+        <div
+          className={`w-11 h-11 rounded-full ${getAvatarColor(contact.name)} flex items-center justify-center text-white font-semibold text-sm`}
+        >
+          {getInitials(contact.name)}
+        </div>
+        {/* Birthday badge on avatar */}
+        {daysUntilBirthday !== null && daysUntilBirthday <= 7 && (
+          <div
+            className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs shadow-sm ${
+              daysUntilBirthday === 0
+                ? "bg-amber-400 ring-2 ring-amber-200"
+                : "bg-pink-400"
+            }`}
+          >
+            🎂
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -92,13 +106,19 @@ export function ContactCard({
           </h3>
           {daysUntilBirthday !== null && daysUntilBirthday <= 7 && (
             <span
-              className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${
+              className={`text-xs px-2 py-0.5 rounded-full shrink-0 font-medium ${
                 daysUntilBirthday === 0
-                  ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600"
-                  : "bg-pink-100 dark:bg-pink-900/30 text-pink-600"
+                  ? "bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-sm"
+                  : daysUntilBirthday <= 3
+                  ? "bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400"
+                  : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
               }`}
             >
-              🎂 {daysUntilBirthday === 0 ? "!" : daysUntilBirthday}
+              {daysUntilBirthday === 0
+                ? (language === "ru" ? "🎉 Сегодня!" : "🎉 Bugun!")
+                : daysUntilBirthday === 1
+                ? (language === "ru" ? "Завтра" : "Ertaga")
+                : (language === "ru" ? `${daysUntilBirthday} дн` : `${daysUntilBirthday} kun`)}
             </span>
           )}
         </div>

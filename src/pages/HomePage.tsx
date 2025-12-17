@@ -74,6 +74,9 @@ export function HomePage() {
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ count: number } | null>(null);
 
+  // Check if Contact Picker API is available
+  const canImportContacts = "contacts" in navigator && !!navigator.contacts;
+
   const handleContactClick = (id: number) => {
     navigate(`/contact/${id}`);
   };
@@ -87,15 +90,7 @@ export function HomePage() {
   };
 
   const handleImportContacts = async () => {
-    // Check if Contact Picker API is available
-    if (!("contacts" in navigator) || !navigator.contacts) {
-      alert(
-        language === "ru"
-          ? "Импорт контактов недоступен в этом браузере"
-          : "Bu brauzerda kontaktlarni import qilish mavjud emas"
-      );
-      return;
-    }
+    if (!navigator.contacts) return;
 
     try {
       setIsImporting(true);
@@ -154,21 +149,23 @@ export function HomePage() {
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-amber-600">Yakyn</h1>
           <div className="flex items-center gap-1">
-            <button
-              className="w-9 h-9 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#404040] rounded-full transition-colors disabled:opacity-50"
-              onClick={handleImportContacts}
-              disabled={isImporting}
-              title={language === "ru" ? "Импорт контактов" : "Kontaktlarni import qilish"}
-            >
-              {isImporting ? (
-                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              ) : (
-                <ImportIcon />
-              )}
-            </button>
+            {canImportContacts && (
+              <button
+                className="w-9 h-9 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#404040] rounded-full transition-colors disabled:opacity-50"
+                onClick={handleImportContacts}
+                disabled={isImporting}
+                title={language === "ru" ? "Импорт контактов" : "Kontaktlarni import qilish"}
+              >
+                {isImporting ? (
+                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                ) : (
+                  <ImportIcon />
+                )}
+              </button>
+            )}
             <button
               className="w-9 h-9 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#404040] rounded-full transition-colors"
               onClick={() => navigate("/settings")}
@@ -203,23 +200,25 @@ export function HomePage() {
               <Button onClick={() => navigate("/add")} fullWidth>
                 {t("home.addFirst")}
               </Button>
-              <button
-                onClick={handleImportContacts}
-                disabled={isImporting}
-                className="flex items-center justify-center gap-2 px-4 py-3 text-amber-600 dark:text-amber-500 border border-amber-200 dark:border-amber-800 rounded-xl font-medium hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors disabled:opacity-50"
-              >
-                {isImporting ? (
-                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                ) : (
-                  <ImportIcon />
-                )}
-                <span>
-                  {language === "ru" ? "Импорт из телефона" : "Telefondan import"}
-                </span>
-              </button>
+              {canImportContacts && (
+                <button
+                  onClick={handleImportContacts}
+                  disabled={isImporting}
+                  className="flex items-center justify-center gap-2 px-4 py-3 text-amber-600 dark:text-amber-500 border border-amber-200 dark:border-amber-800 rounded-xl font-medium hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors disabled:opacity-50"
+                >
+                  {isImporting ? (
+                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  ) : (
+                    <ImportIcon />
+                  )}
+                  <span>
+                    {language === "ru" ? "Импорт из телефона" : "Telefondan import"}
+                  </span>
+                </button>
+              )}
             </div>
           </div>
         ) : (

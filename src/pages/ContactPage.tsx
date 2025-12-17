@@ -7,7 +7,7 @@ import { Card, CardContent } from "../components/ui/Card";
 import { useContacts } from "../hooks/useContacts";
 import { useTranslation } from "../hooks/useTranslation";
 import { useUser } from "../hooks/useUser";
-import type { Contact, Frequency, Language } from "../types";
+import type { Contact, Frequency, Language, ContactHistoryEntry } from "../types";
 
 // SVG Icons
 const BackIcon = () => (
@@ -70,21 +70,15 @@ const SparklesIcon = () => (
   </svg>
 );
 
-const MicIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-  </svg>
-);
-
-const StopIcon = () => (
-  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-    <rect x="6" y="6" width="12" height="12" rx="2" />
-  </svg>
-);
-
 const CopyIcon = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+  </svg>
+);
+
+const HistoryIcon = () => (
+  <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
   </svg>
 );
 
@@ -114,18 +108,28 @@ export function ContactPage() {
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
+  // Contact history state
+  const [history, setHistory] = useState<ContactHistoryEntry[]>([]);
+
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [audioLevels, setAudioLevels] = useState<number[]>([0, 0, 0, 0, 0]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
     async function fetchContact() {
       if (!id) return;
       try {
-        const response = await contactsApi.getById(parseInt(id));
-        setContact(response.contact);
+        const [contactRes, historyRes] = await Promise.all([
+          contactsApi.getById(parseInt(id)),
+          contactsApi.getHistory(parseInt(id)),
+        ]);
+        setContact(contactRes.contact);
+        setHistory(historyRes.history);
       } catch (error) {
         console.error("Failed to fetch contact:", error);
       } finally {
@@ -140,6 +144,9 @@ export function ContactPage() {
     try {
       const updated = await markContacted(contact.id);
       setContact(updated);
+      // Refresh history
+      const historyRes = await contactsApi.getHistory(contact.id);
+      setHistory(historyRes.history);
     } catch (error) {
       console.error("Failed to mark contacted:", error);
     }
@@ -256,6 +263,29 @@ export function ContactPage() {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Setup audio analyser for visualization
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 32;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+
+      // Start visualization loop - get single volume level
+      const updateLevels = () => {
+        if (!analyserRef.current) return;
+        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+        analyserRef.current.getByteFrequencyData(dataArray);
+
+        // Get average volume level (0-100)
+        const avg = (dataArray[1] + dataArray[2] + dataArray[3] + dataArray[4] + dataArray[5]) / 5;
+        const level = Math.min(100, (avg / 255) * 100 * 1.5);
+        setAudioLevels([level, 0, 0, 0, 0]);
+        animationFrameRef.current = requestAnimationFrame(updateLevels);
+      };
+      updateLevels();
+
       const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -269,6 +299,7 @@ export function ContactPage() {
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         stream.getTracks().forEach(track => track.stop());
+        audioContext.close();
         await transcribeAudio(audioBlob);
       };
 
@@ -283,6 +314,13 @@ export function ContactPage() {
   };
 
   const stopRecording = () => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    analyserRef.current = null;
+    setAudioLevels([0, 0, 0, 0, 0]);
+
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
@@ -425,10 +463,54 @@ export function ContactPage() {
           </CardContent>
         </Card>
 
+        {/* Contact History */}
+        {history.length > 0 && (
+          <Card>
+            <CardContent>
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  <HistoryIcon /> {language === "ru" ? "История связи" : "Aloqa tarixi"}
+                </span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">
+                  {history.length} {language === "ru" ? "раз" : "marta"}
+                </span>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {history.slice(0, 10).map((entry) => {
+                  const date = new Date(entry.createdAt);
+                  const day = date.getDate();
+                  const months = language === "ru"
+                    ? ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"]
+                    : ["yan", "fev", "mar", "apr", "may", "iyn", "iyl", "avg", "sen", "okt", "noy", "dek"];
+                  const month = months[date.getMonth()];
+                  const year = date.getFullYear();
+                  const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+                  return (
+                    <div key={entry.id} className="flex items-start gap-3 text-sm">
+                      <div className="w-2 h-2 rounded-full bg-green-500 mt-1.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-gray-600 dark:text-gray-400">
+                          {day} {month} {year}, {time}
+                        </div>
+                        {entry.note && (
+                          <p className="text-gray-500 dark:text-gray-500 text-xs mt-0.5 truncate">
+                            {entry.note}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* AI Suggestions Button */}
         <button
           onClick={handleGetSuggestions}
-          className="w-full flex items-center justify-center gap-3 px-4 py-4 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-2xl font-medium shadow-lg hover:from-violet-600 hover:to-purple-700 active:scale-[0.98] transition-all"
+          className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-xl font-medium shadow-lg hover:from-violet-600 hover:to-purple-700 active:scale-[0.98] transition-all"
         >
           <SparklesIcon />
           <span>{language === "ru" ? "Что написать?" : "Nima yozish kerak?"}</span>
@@ -574,44 +656,64 @@ export function ContactPage() {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
               <NoteIcon /> {t("contact.notes")}
             </h2>
-            <textarea
-              value={notesValue}
-              onChange={(e) => setNotesValue(e.target.value)}
-              placeholder={t("add.notesPlaceholder")}
-              rows={6}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-[#404040] bg-white dark:bg-[#1f1f1f] text-gray-900 dark:text-gray-100 focus:outline-none focus:border-amber-500 resize-y"
-            />
-            {/* Voice Recording Button */}
-            <div className="mt-3">
+            <div className="relative">
+              <textarea
+                value={notesValue}
+                onChange={(e) => setNotesValue(e.target.value)}
+                placeholder={t("add.notesPlaceholder")}
+                rows={6}
+                className="w-full px-4 py-3 pr-24 rounded-xl border border-gray-200 dark:border-[#404040] bg-white dark:bg-[#1f1f1f] text-gray-900 dark:text-gray-100 focus:outline-none focus:border-amber-500 resize-y"
+              />
+              {/* Voice Recording Button - Circular icon only */}
               <button
+                type="button"
                 onClick={isRecording ? stopRecording : startRecording}
                 disabled={isTranscribing}
-                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium transition-all ${
-                  isRecording
-                    ? "bg-red-500 text-white animate-pulse"
-                    : isTranscribing
-                    ? "bg-gray-100 dark:bg-[#404040] text-gray-400 cursor-wait"
-                    : "bg-gray-100 dark:bg-[#404040] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#505050]"
-                }`}
+                className="absolute top-[10px] right-[10px] transition-all"
               >
                 {isRecording ? (
-                  <>
-                    <StopIcon />
-                    <span>{language === "ru" ? "Остановить запись" : "Yozishni to'xtatish"}</span>
-                  </>
+                  /* Recording state - Stop button with live audio rings */
+                  <div className="relative flex items-center justify-center w-12 h-12">
+                    {/* Live audio rings */}
+                    <div
+                      className="absolute rounded-full bg-red-500/10"
+                      style={{
+                        width: `${32 + audioLevels[0] * 0.35}px`,
+                        height: `${32 + audioLevels[0] * 0.35}px`,
+                        transition: 'all 30ms linear',
+                      }}
+                    />
+                    <div
+                      className="absolute rounded-full bg-red-500/25"
+                      style={{
+                        width: `${32 + audioLevels[0] * 0.2}px`,
+                        height: `${32 + audioLevels[0] * 0.2}px`,
+                        transition: 'all 30ms linear',
+                      }}
+                    />
+                    {/* Stop button */}
+                    <div className="relative w-8 h-8 rounded-full bg-red-500 flex items-center justify-center shadow-lg">
+                      <div className="w-3 h-3 rounded-sm bg-white" />
+                    </div>
+                  </div>
                 ) : isTranscribing ? (
-                  <>
-                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    <span>{language === "ru" ? "Распознаю речь..." : "Nutqni aniqlayapman..."}</span>
-                  </>
+                  /* Transcribing state - Animated waves */
+                  <div className="relative flex items-center justify-center w-10 h-10">
+                    <div className="w-8 h-8 rounded-full bg-violet-500 flex items-center justify-center">
+                      <div className="flex items-end gap-[2px] h-3">
+                        <div className="w-[3px] bg-white rounded-full animate-sound-wave-1" />
+                        <div className="w-[3px] bg-white rounded-full animate-sound-wave-2" />
+                        <div className="w-[3px] bg-white rounded-full animate-sound-wave-3" />
+                      </div>
+                    </div>
+                  </div>
                 ) : (
-                  <>
-                    <MicIcon />
-                    <span>{language === "ru" ? "Голосовая заметка" : "Ovozli eslatma"}</span>
-                  </>
+                  /* Default state - Mic button */
+                  <div className="w-8 h-8 rounded-full bg-violet-500 hover:bg-violet-600 flex items-center justify-center shadow-md transition-colors">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                  </div>
                 )}
               </button>
             </div>
