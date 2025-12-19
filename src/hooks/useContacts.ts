@@ -60,7 +60,34 @@ export function useContacts() {
   };
 
   const markContacted = async (id: number, note?: string) => {
+    // Store previous state for undo
+    const previousContact = contacts.find((c) => c.id === id);
+    const previousState = previousContact
+      ? {
+          lastContactAt: previousContact.lastContactAt,
+          nextReminderAt: previousContact.nextReminderAt,
+          snoozedUntil: null as string | null,
+        }
+      : null;
+
     const response = await contactsApi.markContacted(id, note);
+    setContacts((prev) =>
+      prev.map((c) => (c.id === id ? response.contact : c))
+    );
+
+    // Return both the updated contact and the previous state for undo
+    return { contact: response.contact, previousState };
+  };
+
+  const undoMarkContacted = async (
+    id: number,
+    previousState: {
+      lastContactAt: string | null;
+      nextReminderAt: string;
+      snoozedUntil?: string | null;
+    }
+  ) => {
+    const response = await contactsApi.undoMarkContacted(id, previousState);
     setContacts((prev) =>
       prev.map((c) => (c.id === id ? response.contact : c))
     );
@@ -92,6 +119,7 @@ export function useContacts() {
     updateContact,
     deleteContact,
     markContacted,
+    undoMarkContacted,
     snoozeContact,
   };
 }

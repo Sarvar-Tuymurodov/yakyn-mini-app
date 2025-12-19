@@ -3,8 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { useContacts } from "../hooks/useContacts";
 import { useUser } from "../hooks/useUser";
 import { useTranslation } from "../hooks/useTranslation";
+import { useHaptic } from "../hooks/useHaptic";
 import { ContactCard } from "../components/ContactCard";
 import { Button } from "../components/ui/Button";
+import { ContactListSkeleton } from "../components/ui/Skeleton";
+import { EmptyContactsState } from "../components/EmptyState";
+import { UndoToast } from "../components/UndoToast";
 import { contactsApi } from "../api/contacts";
 import type { Language } from "../types";
 
@@ -13,18 +17,6 @@ const SettingsIcon = () => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-  </svg>
-);
-
-const InboxIcon = () => (
-  <svg className="w-16 h-16 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-  </svg>
-);
-
-const LoadingHeart = () => (
-  <svg className="w-12 h-12 text-amber-400 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
-    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
   </svg>
 );
 
@@ -65,14 +57,25 @@ export function HomePage() {
     upcomingContacts,
     loading: contactsLoading,
     markContacted,
+    undoMarkContacted,
     refetch,
   } = useContacts();
 
   const language = (user?.language ?? "ru") as Language;
   const { t } = useTranslation(language);
+  const haptic = useHaptic();
 
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ count: number } | null>(null);
+  const [undoData, setUndoData] = useState<{
+    contactId: number;
+    contactName: string;
+    previousState: {
+      lastContactAt: string | null;
+      nextReminderAt: string;
+      snoozedUntil?: string | null;
+    };
+  } | null>(null);
 
   // Check if Contact Picker API is available
   const canImportContacts = "contacts" in navigator && !!navigator.contacts;
@@ -81,11 +84,30 @@ export function HomePage() {
     navigate(`/contact/${id}`);
   };
 
-  const handleQuickAction = async (id: number) => {
+  const handleQuickAction = async (id: number, contactName: string) => {
     try {
-      await markContacted(id);
+      haptic.success();
+      const result = await markContacted(id);
+      if (result.previousState) {
+        setUndoData({
+          contactId: id,
+          contactName,
+          previousState: result.previousState,
+        });
+      }
     } catch (error) {
+      haptic.error();
       console.error("Failed to mark contacted:", error);
+    }
+  };
+
+  const handleUndo = async () => {
+    if (!undoData) return;
+    try {
+      await undoMarkContacted(undoData.contactId, undoData.previousState);
+      setUndoData(null);
+    } catch (error) {
+      console.error("Failed to undo:", error);
     }
   };
 
@@ -189,14 +211,11 @@ export function HomePage() {
 
       <main className="px-4 py-4 space-y-5">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <LoadingHeart />
-          </div>
+          <ContactListSkeleton />
         ) : !hasContacts ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <InboxIcon />
-            <p className="text-gray-500 dark:text-gray-400 mt-4 mb-6">{t("home.noContacts")}</p>
-            <div className="flex flex-col gap-3 w-full max-w-xs">
+          <div className="flex flex-col items-center justify-center text-center">
+            <EmptyContactsState language={language} />
+            <div className="flex flex-col gap-3 w-full max-w-xs mt-4">
               <Button onClick={() => navigate("/add")} fullWidth>
                 {t("home.addFirst")}
               </Button>
@@ -241,7 +260,7 @@ export function HomePage() {
                       contact={contact}
                       language={language}
                       onClick={() => handleContactClick(contact.id)}
-                      onQuickAction={() => handleQuickAction(contact.id)}
+                      onQuickAction={() => handleQuickAction(contact.id, contact.name)}
                     />
                   ))}
                 </div>
@@ -266,7 +285,7 @@ export function HomePage() {
                       contact={contact}
                       language={language}
                       onClick={() => handleContactClick(contact.id)}
-                      onQuickAction={() => handleQuickAction(contact.id)}
+                      onQuickAction={() => handleQuickAction(contact.id, contact.name)}
                     />
                   ))}
                 </div>
@@ -291,7 +310,7 @@ export function HomePage() {
                       contact={contact}
                       language={language}
                       onClick={() => handleContactClick(contact.id)}
-                      onQuickAction={() => handleQuickAction(contact.id)}
+                      onQuickAction={() => handleQuickAction(contact.id, contact.name)}
                     />
                   ))}
                 </div>
@@ -300,6 +319,16 @@ export function HomePage() {
           </>
         )}
       </main>
+
+      {/* Undo Toast */}
+      {undoData && (
+        <UndoToast
+          contactName={undoData.contactName}
+          language={language}
+          onUndo={handleUndo}
+          onDismiss={() => setUndoData(null)}
+        />
+      )}
 
       {/* Floating Add Button */}
       <button

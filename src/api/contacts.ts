@@ -58,6 +58,15 @@ export const contactsApi = {
   snooze: (id: number, hours: number | "tomorrow") =>
     api.post<ContactResponse>(`/api/contacts/${id}/snooze`, { hours }),
 
+  undoMarkContacted: (
+    id: number,
+    previousState: {
+      lastContactAt: string | null;
+      nextReminderAt: string;
+      snoozedUntil?: string | null;
+    }
+  ) => api.post<ContactResponse>(`/api/contacts/${id}/undo-contacted`, { previousState }),
+
   getHistory: (id: number) =>
     api.get<HistoryResponse>(`/api/contacts/${id}/history`),
 

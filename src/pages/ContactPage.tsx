@@ -7,6 +7,7 @@ import { Card, CardContent } from "../components/ui/Card";
 import { useContacts } from "../hooks/useContacts";
 import { useTranslation } from "../hooks/useTranslation";
 import { useUser } from "../hooks/useUser";
+import { useHaptic } from "../hooks/useHaptic";
 import type { Contact, Frequency, Language, ContactHistoryEntry } from "../types";
 
 // SVG Icons
@@ -93,6 +94,7 @@ export function ContactPage() {
 
   const language = (user?.language ?? "ru") as Language;
   const { t } = useTranslation(language);
+  const haptic = useHaptic();
 
   const [contact, setContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(true);
@@ -142,12 +144,14 @@ export function ContactPage() {
   const handleMarkContacted = async () => {
     if (!contact) return;
     try {
+      haptic.success();
       const updated = await markContacted(contact.id);
       setContact(updated);
       // Refresh history
       const historyRes = await contactsApi.getHistory(contact.id);
       setHistory(historyRes.history);
     } catch (error) {
+      haptic.error();
       console.error("Failed to mark contacted:", error);
     }
   };
@@ -175,9 +179,11 @@ export function ContactPage() {
   const handleDelete = async () => {
     if (!contact) return;
     try {
+      haptic.warning();
       await deleteContact(contact.id);
       navigate("/");
     } catch (error) {
+      haptic.error();
       console.error("Failed to delete contact:", error);
     }
   };
@@ -348,8 +354,10 @@ export function ContactPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-[#1f1f1f]">
-        <div className="text-gray-500 dark:text-gray-400">{t("common.loading")}</div>
+      <div className="flex flex-col items-center justify-center h-screen bg-gray-50 dark:bg-[#1f1f1f]">
+        <svg className="w-12 h-12 text-amber-400 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+        </svg>
       </div>
     );
   }
@@ -736,7 +744,7 @@ export function ContactPage() {
       {/* AI Suggestions Modal */}
       {showSuggestions && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-[#2d2d2d] rounded-2xl p-6 w-full max-w-sm animate-slide-up max-h-[80vh] overflow-y-auto">
+          <div className="bg-white dark:bg-[#2d2d2d] rounded-2xl p-5 w-full animate-slide-up max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                 <SparklesIcon />
