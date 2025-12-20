@@ -145,7 +145,7 @@ export function ContactPage() {
     if (!contact) return;
     try {
       haptic.success();
-      const updated = await markContacted(contact.id);
+      const { contact: updated } = await markContacted(contact.id);
       setContact(updated);
       // Refresh history
       const historyRes = await contactsApi.getHistory(contact.id);
