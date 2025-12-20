@@ -69,11 +69,9 @@ jobs:
             type=raw,value=${{ steps.env-tag.outputs.tag }}
             type=sha,prefix=${{ steps.env-tag.outputs.env }}-
 
-      - name: Decrypt env and prepare for build
-        env:
-          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+      - name: Prepare env for build
         run: |
-          make decrypt
+          echo "Using committed .env.production"
 
       - name: Set build args from env file
         id: build-args
