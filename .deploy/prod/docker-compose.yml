@@ -1,7 +1,7 @@
 services:
   yakyn-mini-app-prod:
     container_name: yakyn-mini-app-prod
-    image: ghcr.io/blink-uz/yakyn-mini-app:prod-latest
+    image: ghcr.io/sarvar-tuymurodov/yakyn-mini-app:prod-latest
     platform: linux/amd64
     restart: unless-stopped
     labels:
