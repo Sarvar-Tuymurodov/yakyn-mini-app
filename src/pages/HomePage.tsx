@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useContacts } from "../hooks/useContacts";
-import { useUser } from "../hooks/useUser";
-import { useTranslation } from "../hooks/useTranslation";
-import { useHaptic } from "../hooks/useHaptic";
+import { contactsApi } from "../api/contacts";
+import yakynLogo from "../assets/yakyn-logo.svg";
 import { ContactCard } from "../components/ContactCard";
+import { EmptyContactsState } from "../components/EmptyState";
 import { Button } from "../components/ui/Button";
 import { ContactListSkeleton } from "../components/ui/Skeleton";
-import { EmptyContactsState } from "../components/EmptyState";
 import { UndoToast } from "../components/UndoToast";
-import { contactsApi } from "../api/contacts";
+import { useContacts } from "../hooks/useContacts";
+import { useHaptic } from "../hooks/useHaptic";
+import { useTranslation } from "../hooks/useTranslation";
+import { useUser } from "../hooks/useUser";
 import type { Language } from "../types";
 
 // SVG Icons
@@ -169,7 +170,7 @@ export function HomePage() {
       {/* Header */}
       <header className="sticky top-0 z-10 bg-white dark:bg-[#2d2d2d] border-b border-gray-100 dark:border-[#404040] px-4 py-3 tg-safe-top">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-amber-600">Yakyn</h1>
+          <img src={yakynLogo} alt="Yakyn" className="w-7 h-7" />
           <div className="flex items-center gap-1">
             {canImportContacts && (
               <button

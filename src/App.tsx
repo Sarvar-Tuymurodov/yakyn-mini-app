@@ -40,8 +40,10 @@ function LanguageSelectionScreen({ onSelect }: { onSelect: (lang: Language) => v
       {/* Logo */}
       <div className="mb-8">
         <div className="w-24 h-24 bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 rounded-3xl flex items-center justify-center shadow-xl shadow-amber-300/40 dark:shadow-amber-900/30">
-          <svg className="w-14 h-14 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+          <svg className="w-14 h-14" viewBox="-25 -20 150 140" fill="none">
+            <circle cx="50" cy="32" r="20" stroke="white" strokeWidth="5" fill="none"/>
+            <circle cx="35" cy="58" r="20" stroke="white" strokeWidth="5" fill="none"/>
+            <circle cx="65" cy="58" r="20" stroke="white" strokeWidth="5" fill="none"/>
           </svg>
         </div>
       </div>
@@ -91,8 +93,10 @@ function LoadingScreen() {
       {/* Large Logo with heartbeat animation */}
       <div className={`mb-6 transition-transform duration-700 ${scaleIn ? "scale-100" : "scale-75"}`}>
         <div className="w-36 h-36 bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 rounded-[2.5rem] flex items-center justify-center shadow-2xl shadow-amber-300/50 dark:shadow-amber-900/30 animate-[pulse_2s_ease-in-out_infinite]">
-          <svg className="w-20 h-20 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+          <svg className="w-20 h-20 drop-shadow-lg" viewBox="-25 -20 150 140" fill="none">
+            <circle cx="50" cy="32" r="20" stroke="white" strokeWidth="5" fill="none"/>
+            <circle cx="35" cy="58" r="20" stroke="white" strokeWidth="5" fill="none"/>
+            <circle cx="65" cy="58" r="20" stroke="white" strokeWidth="5" fill="none"/>
           </svg>
         </div>
       </div>
