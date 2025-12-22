@@ -113,6 +113,10 @@ export function ContactPage() {
   // Contact history state
   const [history, setHistory] = useState<ContactHistoryEntry[]>([]);
 
+  // Contact note modal state
+  const [showContactedModal, setShowContactedModal] = useState(false);
+  const [contactedNoteValue, setContactedNoteValue] = useState("");
+
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -141,11 +145,22 @@ export function ContactPage() {
     fetchContact();
   }, [id]);
 
-  const handleMarkContacted = async () => {
+  const handleMarkContactedClick = () => {
+    haptic.tap();
+    setContactedNoteValue("");
+    setShowContactedModal(true);
+  };
+
+  const handleConfirmContacted = async (withNote: boolean) => {
     if (!contact) return;
+    const note = withNote && contactedNoteValue.trim() ? contactedNoteValue.trim() : undefined;
+
+    setShowContactedModal(false);
+    setContactedNoteValue("");
+
     try {
       haptic.success();
-      const { contact: updated } = await markContacted(contact.id);
+      const { contact: updated } = await markContacted(contact.id, note);
       setContact(updated);
       // Refresh history
       const historyRes = await contactsApi.getHistory(contact.id);
@@ -265,13 +280,18 @@ export function ContactPage() {
     }
   };
 
-  // Voice recording handlers
+  // Voice recording handlers - Press and hold to record (like Telegram)
+  const streamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
 
       // Setup audio analyser for visualization
       const audioContext = new AudioContext();
+      audioContextRef.current = audioContext;
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 32;
@@ -304,13 +324,15 @@ export function ContactPage() {
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        stream.getTracks().forEach(track => track.stop());
-        audioContext.close();
-        await transcribeAudio(audioBlob);
+        // Only transcribe if recording lasted more than 0.5 seconds
+        if (audioBlob.size > 1000) {
+          await transcribeAudio(audioBlob);
+        }
       };
 
       mediaRecorder.start();
       setIsRecording(true);
+      haptic.tap();
     } catch (error) {
       console.error("Failed to start recording:", error);
       alert(language === "ru"
@@ -327,9 +349,35 @@ export function ContactPage() {
     analyserRef.current = null;
     setAudioLevels([0, 0, 0, 0, 0]);
 
+    // Clean up stream and audio context
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      haptic.tap();
+    }
+  };
+
+  // Handle pointer events for press-and-hold
+  const handleRecordStart = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    if (!isRecording && !isTranscribing) {
+      startRecording();
+    }
+  };
+
+  const handleRecordEnd = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    if (isRecording) {
+      stopRecording();
     }
   };
 
@@ -600,7 +648,7 @@ export function ContactPage() {
 
       {/* Fixed Action Button */}
       <div className="fixed bottom-4 left-4 right-4 tg-margin-bottom">
-        <Button fullWidth size="lg" onClick={handleMarkContacted}>
+        <Button fullWidth size="lg" onClick={handleMarkContactedClick}>
           <CheckIcon /> {t("contact.contacted")}
         </Button>
       </div>
@@ -672,15 +720,19 @@ export function ContactPage() {
                 rows={6}
                 className="w-full px-4 py-3 pr-24 rounded-xl border border-gray-200 dark:border-[#404040] bg-white dark:bg-[#1f1f1f] text-gray-900 dark:text-gray-100 focus:outline-none focus:border-amber-500 resize-y"
               />
-              {/* Voice Recording Button - Circular icon only */}
+              {/* Voice Recording Button - Press and hold to record (like Telegram) */}
               <button
                 type="button"
-                onClick={isRecording ? stopRecording : startRecording}
+                onMouseDown={handleRecordStart}
+                onMouseUp={handleRecordEnd}
+                onMouseLeave={handleRecordEnd}
+                onTouchStart={handleRecordStart}
+                onTouchEnd={handleRecordEnd}
                 disabled={isTranscribing}
-                className="absolute top-[10px] right-[10px] transition-all"
+                className="absolute top-2.5 right-2.5 transition-all touch-none select-none"
               >
                 {isRecording ? (
-                  /* Recording state - Stop button with live audio rings */
+                  /* Recording state - Pulsing mic with audio rings */
                   <div className="relative flex items-center justify-center w-12 h-12">
                     {/* Live audio rings */}
                     <div
@@ -699,25 +751,28 @@ export function ContactPage() {
                         transition: 'all 30ms linear',
                       }}
                     />
-                    {/* Stop button */}
-                    <div className="relative w-8 h-8 rounded-full bg-red-500 flex items-center justify-center shadow-lg">
-                      <div className="w-3 h-3 rounded-sm bg-white" />
+                    {/* Recording indicator */}
+                    <div className="relative w-10 h-10 rounded-full bg-red-500 flex items-center justify-center shadow-lg animate-pulse">
+                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+                        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+                      </svg>
                     </div>
                   </div>
                 ) : isTranscribing ? (
                   /* Transcribing state - Animated waves */
                   <div className="relative flex items-center justify-center w-10 h-10">
                     <div className="w-8 h-8 rounded-full bg-violet-500 flex items-center justify-center">
-                      <div className="flex items-end gap-[2px] h-3">
-                        <div className="w-[3px] bg-white rounded-full animate-sound-wave-1" />
-                        <div className="w-[3px] bg-white rounded-full animate-sound-wave-2" />
-                        <div className="w-[3px] bg-white rounded-full animate-sound-wave-3" />
+                      <div className="flex items-end gap-0.5 h-3">
+                        <div className="w-0.75 bg-white rounded-full animate-sound-wave-1" />
+                        <div className="w-0.75 bg-white rounded-full animate-sound-wave-2" />
+                        <div className="w-0.75 bg-white rounded-full animate-sound-wave-3" />
                       </div>
                     </div>
                   </div>
                 ) : (
-                  /* Default state - Mic button */
-                  <div className="w-8 h-8 rounded-full bg-violet-500 hover:bg-violet-600 flex items-center justify-center shadow-md transition-colors">
+                  /* Default state - Mic button with hint */
+                  <div className="w-8 h-8 rounded-full bg-violet-500 hover:bg-violet-600 active:scale-110 flex items-center justify-center shadow-md transition-all">
                     <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                     </svg>
@@ -812,6 +867,40 @@ export function ContactPage() {
                 onClick={() => setShowSuggestions(false)}
               >
                 {t("common.close")}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contacted Note Modal */}
+      {showContactedModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4">
+          <div className="bg-white dark:bg-[#2d2d2d] rounded-2xl p-5 w-full max-w-sm animate-slide-up">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
+              {contact?.name}
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              {t("contact.notePlaceholder")}
+            </p>
+            <textarea
+              value={contactedNoteValue}
+              onChange={(e) => setContactedNoteValue(e.target.value)}
+              placeholder={language === "ru" ? "Обсудили новый проект..." : "Yangi loyiha haqida gaplashdik..."}
+              rows={3}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-[#404040] bg-white dark:bg-[#1f1f1f] text-gray-900 dark:text-gray-100 focus:outline-none focus:border-amber-500 resize-none"
+              autoFocus
+            />
+            <div className="flex gap-2 mt-4">
+              <Button
+                variant="ghost"
+                fullWidth
+                onClick={() => handleConfirmContacted(false)}
+              >
+                {language === "ru" ? "Пропустить" : "O'tkazib yuborish"}
+              </Button>
+              <Button fullWidth onClick={() => handleConfirmContacted(true)}>
+                {t("contact.save")}
               </Button>
             </div>
           </div>

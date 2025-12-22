@@ -165,12 +165,21 @@ function TelegramProvider({ children }: { children: React.ReactNode }) {
       // Also store the real user ID for debugging
       localStorage.setItem("dev_telegram_id", String(telegramUser.id));
     } else {
+      // Development mode - running outside Telegram
+      const isDev = import.meta.env.DEV || window.location.hostname === "localhost";
+
+      if (isDev) {
+        // Set a default dev telegram ID if not already set
+        if (!localStorage.getItem("dev_telegram_id")) {
+          localStorage.setItem("dev_telegram_id", "123456789");
+          console.log("🔧 Dev mode: Set default telegram ID 123456789");
+        }
+      }
 
       // Check system preference for dark mode in dev
       if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
         document.documentElement.classList.add("dark");
       }
-
     }
 
     // Check if user needs onboarding (first time)

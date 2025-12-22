@@ -20,12 +20,19 @@
 }
 
 /* Base styles for Telegram Mini App */
-html,
-body,
-#root {
+html {
   height: 100%;
   margin: 0;
   padding: 0;
+}
+
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 body {

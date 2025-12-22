@@ -78,6 +78,13 @@ export function HomePage() {
     };
   } | null>(null);
 
+  // Contact note modal state
+  const [noteModalData, setNoteModalData] = useState<{
+    contactId: number;
+    contactName: string;
+  } | null>(null);
+  const [noteValue, setNoteValue] = useState("");
+
   // Check if Contact Picker API is available
   const canImportContacts = "contacts" in navigator && !!navigator.contacts;
 
@@ -85,13 +92,26 @@ export function HomePage() {
     navigate(`/contact/${id}`);
   };
 
-  const handleQuickAction = async (id: number, contactName: string) => {
+  const handleQuickAction = (id: number, contactName: string) => {
+    haptic.tap();
+    setNoteValue("");
+    setNoteModalData({ contactId: id, contactName });
+  };
+
+  const handleConfirmContacted = async (withNote: boolean) => {
+    if (!noteModalData) return;
+    const { contactId, contactName } = noteModalData;
+    const note = withNote && noteValue.trim() ? noteValue.trim() : undefined;
+
+    setNoteModalData(null);
+    setNoteValue("");
+
     try {
       haptic.success();
-      const result = await markContacted(id);
+      const result = await markContacted(contactId, note);
       if (result.previousState) {
         setUndoData({
-          contactId: id,
+          contactId,
           contactName,
           previousState: result.previousState,
         });
@@ -329,6 +349,40 @@ export function HomePage() {
           onUndo={handleUndo}
           onDismiss={() => setUndoData(null)}
         />
+      )}
+
+      {/* Contact Note Modal */}
+      {noteModalData && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4">
+          <div className="bg-white dark:bg-[#2d2d2d] rounded-2xl p-5 w-full max-w-sm animate-slide-up">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
+              {noteModalData.contactName}
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              {t("contact.notePlaceholder")}
+            </p>
+            <textarea
+              value={noteValue}
+              onChange={(e) => setNoteValue(e.target.value)}
+              placeholder={language === "ru" ? "Обсудили новый проект..." : "Yangi loyiha haqida gaplashdik..."}
+              rows={3}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-[#404040] bg-white dark:bg-[#1f1f1f] text-gray-900 dark:text-gray-100 focus:outline-none focus:border-amber-500 resize-none"
+              autoFocus
+            />
+            <div className="flex gap-2 mt-4">
+              <Button
+                variant="ghost"
+                fullWidth
+                onClick={() => handleConfirmContacted(false)}
+              >
+                {language === "ru" ? "Пропустить" : "O'tkazib yuborish"}
+              </Button>
+              <Button fullWidth onClick={() => handleConfirmContacted(true)}>
+                {t("contact.save")}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Floating Add Button */}
