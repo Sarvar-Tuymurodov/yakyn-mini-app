@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { contactsApi } from "../api/contacts";
 import yakynLogo from "../assets/yakyn-logo.svg";
+import { AddContactFAB } from "../components/AddContactFAB";
 import { ContactCard } from "../components/ContactCard";
 import { EmptyContactsState } from "../components/EmptyState";
 import { Button } from "../components/ui/Button";
@@ -9,21 +10,27 @@ import { ContactListSkeleton } from "../components/ui/Skeleton";
 import { UndoToast } from "../components/UndoToast";
 import { useContacts } from "../hooks/useContacts";
 import { useHaptic } from "../hooks/useHaptic";
+import { usePullToRefresh } from "../hooks/usePullToRefresh";
 import { useTranslation } from "../hooks/useTranslation";
 import { useUser } from "../hooks/useUser";
 import type { Language } from "../types";
 
-// SVG Icons
-const SettingsIcon = () => (
+// Icons
+const SearchIcon = () => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
   </svg>
 );
 
-const PlusIcon = () => (
+const ClearIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
+
+const SettingsIcon = () => (
   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
   </svg>
 );
 
@@ -33,7 +40,13 @@ const ImportIcon = () => (
   </svg>
 );
 
-// TypeScript declaration for Contact Picker API
+const RefreshIcon = () => (
+  <svg className="w-6 h-6 text-amber-500" fill="none" viewBox="0 0 24 24">
+    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+  </svg>
+);
+
+// Contact Picker API types
 interface ContactPickerContact {
   name: string[];
   tel?: string[];
@@ -66,8 +79,18 @@ export function HomePage() {
   const { t } = useTranslation(language);
   const haptic = useHaptic();
 
+  // Pull-to-refresh
+  const { isRefreshing, pullDistance, containerRef, handlers } = usePullToRefresh({
+    onRefresh: async () => {
+      haptic.tap();
+      await refetch();
+    },
+  });
+
+  // Local state
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ count: number } | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [undoData, setUndoData] = useState<{
     contactId: number;
     contactName: string;
@@ -77,19 +100,59 @@ export function HomePage() {
       snoozedUntil?: string | null;
     };
   } | null>(null);
-
-  // Contact note modal state
   const [noteModalData, setNoteModalData] = useState<{
     contactId: number;
     contactName: string;
   } | null>(null);
   const [noteValue, setNoteValue] = useState("");
 
-  // Check if Contact Picker API is available
+  // Filter contacts by search
+  const filterContacts = useCallback((contacts: typeof overdueContacts) => {
+    if (!searchQuery.trim()) return contacts;
+    const query = searchQuery.toLowerCase();
+    return contacts.filter(c => c.name.toLowerCase().includes(query));
+  }, [searchQuery]);
+
+  const filteredOverdue = filterContacts(overdueContacts);
+  const filteredToday = filterContacts(todayContacts);
+  const filteredUpcoming = filterContacts(upcomingContacts);
+
   const canImportContacts = "contacts" in navigator && !!navigator.contacts;
 
-  const handleContactClick = (id: number) => {
-    navigate(`/contact/${id}`);
+  const handleImportContacts = async () => {
+    if (!navigator.contacts) return;
+
+    try {
+      setIsImporting(true);
+      const contacts = await navigator.contacts.select(["name"], { multiple: true });
+
+      if (contacts.length === 0) {
+        setIsImporting(false);
+        return;
+      }
+
+      const contactsToImport = contacts
+        .filter((c) => c.name && c.name[0])
+        .map((c) => ({ name: c.name[0] }));
+
+      if (contactsToImport.length === 0) {
+        setIsImporting(false);
+        return;
+      }
+
+      const result = await contactsApi.importContacts(contactsToImport);
+      setImportResult({ count: result.imported });
+      await refetch();
+
+      setTimeout(() => setImportResult(null), 3000);
+    } catch (error) {
+      console.error("Failed to import contacts:", error);
+      if ((error as Error).name !== "InvalidStateError") {
+        alert(language === "ru" ? "Не удалось импортировать контакты" : "Kontaktlarni import qilishda xatolik");
+      }
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   const handleQuickAction = (id: number, contactName: string) => {
@@ -110,11 +173,7 @@ export function HomePage() {
       haptic.success();
       const result = await markContacted(contactId, note);
       if (result.previousState) {
-        setUndoData({
-          contactId,
-          contactName,
-          previousState: result.previousState,
-        });
+        setUndoData({ contactId, contactName, previousState: result.previousState });
       }
     } catch (error) {
       haptic.error();
@@ -132,61 +191,12 @@ export function HomePage() {
     }
   };
 
-  const handleImportContacts = async () => {
-    if (!navigator.contacts) return;
-
-    try {
-      setIsImporting(true);
-      const contacts = await navigator.contacts.select(["name"], {
-        multiple: true,
-      });
-
-      if (contacts.length === 0) {
-        setIsImporting(false);
-        return;
-      }
-
-      // Map contacts to our format
-      const contactsToImport = contacts
-        .filter((c) => c.name && c.name[0])
-        .map((c) => ({
-          name: c.name[0],
-        }));
-
-      if (contactsToImport.length === 0) {
-        setIsImporting(false);
-        return;
-      }
-
-      const result = await contactsApi.importContacts(contactsToImport);
-      setImportResult({ count: result.imported });
-      await refetch();
-
-      // Clear result after 3 seconds
-      setTimeout(() => setImportResult(null), 3000);
-    } catch (error) {
-      console.error("Failed to import contacts:", error);
-      if ((error as Error).name !== "InvalidStateError") {
-        alert(
-          language === "ru"
-            ? "Не удалось импортировать контакты"
-            : "Kontaktlarni import qilishda xatolik"
-        );
-      }
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
   const isLoading = userLoading || contactsLoading;
-
-  const hasContacts =
-    overdueContacts.length > 0 ||
-    todayContacts.length > 0 ||
-    upcomingContacts.length > 0;
+  const hasContacts = overdueContacts.length > 0 || todayContacts.length > 0 || upcomingContacts.length > 0;
+  const hasFilteredResults = filteredOverdue.length > 0 || filteredToday.length > 0 || filteredUpcoming.length > 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#1f1f1f] pb-24">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#1f1f1f] pb-24 overflow-hidden flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-white dark:bg-[#2d2d2d] border-b border-gray-100 dark:border-[#404040] px-4 py-3 tg-safe-top">
         <div className="flex items-center justify-between">
@@ -197,8 +207,7 @@ export function HomePage() {
                 className="w-9 h-9 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#404040] rounded-full transition-colors disabled:opacity-50"
                 onClick={handleImportContacts}
                 disabled={isImporting}
-                title={language === "ru" ? "Импорт контактов" : "Kontaktlarni import qilish"}
-              > 
+              >
                 {isImporting ? (
                   <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -219,18 +228,59 @@ export function HomePage() {
         </div>
       </header>
 
-      {/* Import Result Toast */}
-      {importResult && (
-        <div className="fixed top-16 left-4 right-4 z-20 animate-slide-down">
-          <div className="bg-green-500 text-white px-4 py-3 rounded-xl shadow-lg text-center font-medium">
-            {language === "ru"
-              ? `Импортировано контактов: ${importResult.count}`
-              : `Import qilindi: ${importResult.count} ta kontakt`}
+      {/* Search Bar */}
+      {hasContacts && !isLoading && (
+        <div className="px-4 pt-3 pb-1 bg-gray-50 dark:bg-[#1f1f1f]">
+          <div className="relative">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <SearchIcon />
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={language === "ru" ? "Поиск контактов..." : "Kontaktlarni qidirish..."}
+              className="w-full pl-10 pr-10 py-2.5 bg-white dark:bg-[#2d2d2d] border border-gray-200 dark:border-[#404040] rounded-xl text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <ClearIcon />
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      <main className="px-4 py-4 space-y-5">
+      {/* Import Result Toast */}
+      {importResult && (
+        <div className="fixed top-16 left-4 right-4 z-20 animate-slide-down">
+          <div className="bg-green-500 text-white px-4 py-3 rounded-xl shadow-lg text-center font-medium">
+            {language === "ru" ? `Импортировано контактов: ${importResult.count}` : `Import qilindi: ${importResult.count} ta kontakt`}
+          </div>
+        </div>
+      )}
+
+      {/* Pull-to-refresh indicator */}
+      <div
+        className="flex justify-center overflow-hidden transition-all duration-200"
+        style={{ height: pullDistance > 0 ? pullDistance : 0 }}
+      >
+        <div className={`flex items-center justify-center ${isRefreshing ? "animate-spin" : ""}`}
+          style={{ transform: `rotate(${Math.min(pullDistance * 3, 360)}deg)` }}
+        >
+          <RefreshIcon />
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <main
+        ref={containerRef as React.RefObject<HTMLElement>}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-5"
+        {...handlers}
+      >
         {isLoading ? (
           <ContactListSkeleton />
         ) : !hasContacts ? (
@@ -254,33 +304,41 @@ export function HomePage() {
                   ) : (
                     <ImportIcon />
                   )}
-                  <span>
-                    {language === "ru" ? "Импорт из телефона" : "Telefondan import"}
-                  </span>
+                  <span>{language === "ru" ? "Импорт из телефона" : "Telefondan import"}</span>
                 </button>
               )}
             </div>
           </div>
+        ) : searchQuery && !hasFilteredResults ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+              <SearchIcon />
+            </div>
+            <p className="text-gray-500 dark:text-gray-400">
+              {language === "ru" ? `Контакт "${searchQuery}" не найден` : `"${searchQuery}" kontakti topilmadi`}
+            </p>
+            <button onClick={() => setSearchQuery("")} className="mt-3 text-amber-600 dark:text-amber-500 font-medium">
+              {language === "ru" ? "Очистить поиск" : "Qidiruvni tozalash"}
+            </button>
+          </div>
         ) : (
           <>
             {/* Overdue Section */}
-            {overdueContacts.length > 0 && (
+            {filteredOverdue.length > 0 && (
               <section>
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-semibold text-red-600 dark:text-red-400">
-                    {t("home.overdue")}
-                  </h2>
+                  <h2 className="text-sm font-semibold text-red-600 dark:text-red-400">{t("home.overdue")}</h2>
                   <span className="text-xs font-medium text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full">
-                    {overdueContacts.length}
+                    {filteredOverdue.length}
                   </span>
                 </div>
                 <div className="space-y-2">
-                  {overdueContacts.map((contact) => (
+                  {filteredOverdue.map((contact) => (
                     <ContactCard
                       key={contact.id}
                       contact={contact}
                       language={language}
-                      onClick={() => handleContactClick(contact.id)}
+                      onClick={() => navigate(`/contact/${contact.id}`)}
                       onQuickAction={() => handleQuickAction(contact.id, contact.name)}
                     />
                   ))}
@@ -289,23 +347,21 @@ export function HomePage() {
             )}
 
             {/* Today Section */}
-            {todayContacts.length > 0 && (
+            {filteredToday.length > 0 && (
               <section>
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-semibold text-amber-600">
-                    {t("home.today")}
-                  </h2>
+                  <h2 className="text-sm font-semibold text-amber-600">{t("home.today")}</h2>
                   <span className="text-xs font-medium text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full">
-                    {todayContacts.length}
+                    {filteredToday.length}
                   </span>
                 </div>
                 <div className="space-y-2">
-                  {todayContacts.map((contact) => (
+                  {filteredToday.map((contact) => (
                     <ContactCard
                       key={contact.id}
                       contact={contact}
                       language={language}
-                      onClick={() => handleContactClick(contact.id)}
+                      onClick={() => navigate(`/contact/${contact.id}`)}
                       onQuickAction={() => handleQuickAction(contact.id, contact.name)}
                     />
                   ))}
@@ -314,23 +370,21 @@ export function HomePage() {
             )}
 
             {/* Upcoming Section */}
-            {upcomingContacts.length > 0 && (
+            {filteredUpcoming.length > 0 && (
               <section>
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-semibold text-gray-600 dark:text-gray-400">
-                    {t("home.upcoming")}
-                  </h2>
+                  <h2 className="text-sm font-semibold text-gray-600 dark:text-gray-400">{t("home.upcoming")}</h2>
                   <span className="text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
-                    {upcomingContacts.length}
+                    {filteredUpcoming.length}
                   </span>
                 </div>
                 <div className="space-y-2">
-                  {upcomingContacts.map((contact) => (
+                  {filteredUpcoming.map((contact) => (
                     <ContactCard
                       key={contact.id}
                       contact={contact}
                       language={language}
-                      onClick={() => handleContactClick(contact.id)}
+                      onClick={() => navigate(`/contact/${contact.id}`)}
                       onQuickAction={() => handleQuickAction(contact.id, contact.name)}
                     />
                   ))}
@@ -358,9 +412,7 @@ export function HomePage() {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
               {noteModalData.contactName}
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              {t("contact.notePlaceholder")}
-            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t("contact.notePlaceholder")}</p>
             <textarea
               value={noteValue}
               onChange={(e) => setNoteValue(e.target.value)}
@@ -370,11 +422,7 @@ export function HomePage() {
               autoFocus
             />
             <div className="flex gap-2 mt-4">
-              <Button
-                variant="ghost"
-                fullWidth
-                onClick={() => handleConfirmContacted(false)}
-              >
+              <Button variant="ghost" fullWidth onClick={() => handleConfirmContacted(false)}>
                 {language === "ru" ? "Пропустить" : "O'tkazib yuborish"}
               </Button>
               <Button fullWidth onClick={() => handleConfirmContacted(true)}>
@@ -385,13 +433,8 @@ export function HomePage() {
         </div>
       )}
 
-      {/* Floating Add Button */}
-      <button
-        className="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 text-white rounded-full shadow-lg hover:bg-amber-600 active:bg-amber-700 active:scale-95 transition-all flex items-center justify-center tg-margin-bottom"
-        onClick={() => navigate("/add")}
-      >
-        <PlusIcon />
-      </button>
+      {/* Add Contact FAB */}
+      <AddContactFAB language={language} />
     </div>
   );
 }
