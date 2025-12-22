@@ -1,73 +1,98 @@
-# React + TypeScript + Vite
+# Yakyn - Mini App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Telegram Mini App for staying connected with the people who matter. Yakyn helps you maintain relationships by sending timely reminders to reach out to friends, family, and colleagues.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Current Features
+- **Contact Management** - Add, edit, and organize your contacts
+- **Smart Reminders** - Get notified when it's time to reach out (weekly, biweekly, monthly, quarterly)
+- **Voice-to-Contact** - Add contacts by speaking naturally ("Alisher, friend from university, birthday March 15, call monthly")
+- **AI Message Suggestions** - Get personalized message ideas based on contact context and notes
+- **Birthday Reminders** - Never miss important birthdays
+- **Pull-to-Refresh** - Swipe down to refresh your contact list
+- **Bilingual Support** - Russian and Uzbek languages
+- **Dark Mode** - Automatic theme based on Telegram settings
 
-## React Compiler
+### Tech Stack
+- React 18 + TypeScript
+- Vite
+- TailwindCSS
+- React Router
+- Telegram Mini App SDK
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Project Structure
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+src/
+├── api/           # API clients (contacts, AI, users)
+├── assets/        # Static assets (logo, icons)
+├── components/    # Reusable UI components
+│   ├── ui/        # Base components (Button, Card, Skeleton)
+│   ├── AddContactFAB.tsx
+│   ├── ContactCard.tsx
+│   ├── VoiceRecordButton.tsx
+│   └── ...
+├── hooks/         # Custom React hooks
+│   ├── useContacts.ts
+│   ├── useVoiceRecording.ts
+│   ├── usePullToRefresh.ts
+│   └── ...
+├── locales/       # i18n translations (ru.json, uz.json)
+├── pages/         # Page components
+│   ├── HomePage.tsx
+│   ├── ContactPage.tsx
+│   ├── AddContactPage.tsx
+│   └── SettingsPage.tsx
+└── types/         # TypeScript types
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Setup
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+# Install dependencies
+npm install
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
 ```
+
+## Environment Variables
+
+```env
+VITE_API_BASE_URL=https://your-bot-api.com
+```
+
+## Future Plans
+
+See [Future Features](#future-features) section below.
+
+---
+
+## Future Features
+
+### Priority 1 - Core Improvements
+- [ ] **Snooze Improvements** - Custom snooze duration picker
+- [ ] **Contact Groups** - Organize contacts into groups (Family, Work, Friends)
+- [ ] **Search & Filter** - Advanced search with filters by group, frequency, last contact date
+- [ ] **Contact Import** - Import contacts from phone's contact list
+
+### Priority 2 - Engagement Features
+- [ ] **Streak System** - Track your consistency in maintaining relationships
+- [ ] **Statistics Dashboard** - View your communication patterns and history
+- [ ] **Reminder Templates** - Save and reuse message templates
+- [ ] **Quick Actions** - One-tap actions (call, message via Telegram/WhatsApp)
+
+### Priority 3 - Advanced Features
+- [ ] **Smart Scheduling** - AI suggests optimal times to reach out
+- [ ] **Relationship Health Score** - Visual indicator of relationship strength
+- [ ] **Event Reminders** - Add custom events (anniversaries, meetings)
+- [ ] **Notes Timeline** - See history of notes and interactions
+- [ ] **Export Data** - Export contacts and history to CSV/JSON
+
+### Priority 4 - Social Features
+- [ ] **Shared Contacts** - Share contact reminders with family members
+- [ ] **Mutual Reminders** - Both parties get reminded to connect
