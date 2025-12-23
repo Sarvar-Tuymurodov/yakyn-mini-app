@@ -5,7 +5,7 @@ Telegram Mini App for staying connected with the people who matter. Yakyn helps 
 ## Features
 
 ### Current Features
-- **Contact Management** - Add, edit, and organize your contacts
+- **Contact Management** - Add,  edit, and organize your contacts
 - **Smart Reminders** - Get notified when it's time to reach out (weekly, biweekly, monthly, quarterly)
 - **Voice-to-Contact** - Add contacts by speaking naturally ("Alisher, friend from university, birthday March 15, call monthly")
 - **AI Message Suggestions** - Get personalized message ideas based on contact context and notes
