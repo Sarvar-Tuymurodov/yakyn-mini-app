@@ -1,118 +1,153 @@
-import { useCallback } from "react";
-import { aiApi } from "../api/ai";
-import { useHaptic } from "../hooks/useHaptic";
-import { useVoiceRecording } from "../hooks/useVoiceRecording";
+import { useRef, useEffect } from "react";
+
+type VoiceState = "idle" | "recording" | "transcribing";
 
 interface VoiceRecordButtonProps {
-  onTranscribed: (text: string) => void;
+  state: VoiceState;
+  size?: "sm" | "md" | "lg";
+  audioLevel?: number; // 0-100, for recording visualization
+  hasPermission?: boolean; // If false, first tap requests permission
+  onRequestPermission?: () => void; // Called on first tap when no permission
+  onRecordStart: () => void;
+  onRecordEnd: () => void;
   disabled?: boolean;
-  size?: "sm" | "md";
 }
 
-export function VoiceRecordButton({ onTranscribed, disabled, size = "md" }: VoiceRecordButtonProps) {
-  const haptic = useHaptic();
+const sizes = {
+  sm: { container: "w-10 h-10", wrapper: "w-14 h-14", icon: "w-5 h-5", base: 40 },
+  md: { container: "w-12 h-12", wrapper: "w-16 h-16", icon: "w-6 h-6", base: 48 },
+  lg: { container: "w-14 h-14", wrapper: "w-20 h-20", icon: "w-7 h-7", base: 56 },
+};
 
-  const handleTranscribe = useCallback(async (audioBlob: Blob) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(audioBlob);
-    reader.onloadend = async () => {
-      const base64 = (reader.result as string).split(",")[1];
-      try {
-        const response = await aiApi.transcribeAudio(base64);
-        if (response.text) {
-          onTranscribed(response.text);
+export function VoiceRecordButton({
+  state,
+  size = "md",
+  audioLevel = 0,
+  hasPermission = true, // Default true for backwards compatibility
+  onRequestPermission,
+  onRecordStart,
+  onRecordEnd,
+  disabled = false,
+}: VoiceRecordButtonProps) {
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const s = sizes[size];
+
+  // Check if we need permission first
+  const needsPermission = !hasPermission && onRequestPermission;
+
+  // Attach non-passive touch event listeners
+  useEffect(() => {
+    const button = buttonRef.current;
+    if (!button) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      if (state === "idle" && !disabled) {
+        if (needsPermission) {
+          // First tap - request permission (single tap, not hold)
+          onRequestPermission?.();
+        } else {
+          onRecordStart();
         }
-      } catch (error) {
-        console.error("Failed to transcribe:", error);
       }
     };
-  }, [onTranscribed]);
 
-  const { isRecording, isProcessing, audioLevel, startRecording, stopRecording } = useVoiceRecording({
-    onTranscribe: handleTranscribe,
-  });
+    const handleTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
+      if (state === "recording") {
+        onRecordEnd();
+      }
+    };
 
-  const handleStart = async (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    if (!isRecording && !isProcessing && !disabled) {
-      haptic.tap();
-      try {
-        await startRecording();
-      } catch {
-        haptic.error();
+    button.addEventListener("touchstart", handleTouchStart, { passive: false });
+    button.addEventListener("touchend", handleTouchEnd, { passive: false });
+
+    return () => {
+      button.removeEventListener("touchstart", handleTouchStart);
+      button.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [state, disabled, needsPermission, onRequestPermission, onRecordStart, onRecordEnd]);
+
+  const handleMouseDown = () => {
+    if (state === "idle" && !disabled) {
+      if (needsPermission) {
+        // First click - request permission
+        onRequestPermission?.();
+      } else {
+        onRecordStart();
       }
     }
   };
 
-  const handleEnd = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    if (isRecording) {
-      haptic.tap();
-      stopRecording();
+  const handleMouseUp = () => {
+    if (state === "recording") {
+      onRecordEnd();
     }
   };
 
-  const buttonSize = size === "sm" ? "w-8 h-8" : "w-10 h-10";
-  const iconSize = size === "sm" ? "w-4 h-4" : "w-5 h-5";
-  const ringBase = size === "sm" ? 28 : 32;
+  // Mic icon component
+  const MicIcon = () => (
+    <svg className={`${s.icon} text-white`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+    </svg>
+  );
 
+  // Recording state - mic with audio-reactive rings
+  if (state === "recording") {
+    return (
+      <div className={`${s.wrapper} relative flex items-center justify-center`}>
+        {/* Audio-reactive rings */}
+        <div
+          className="absolute rounded-full bg-violet-500/15"
+          style={{
+            width: `${s.base + audioLevel * 0.4}px`,
+            height: `${s.base + audioLevel * 0.4}px`,
+            transition: "all 50ms ease-out",
+          }}
+        />
+        <div
+          className="absolute rounded-full bg-violet-500/25"
+          style={{
+            width: `${s.base - 4 + audioLevel * 0.25}px`,
+            height: `${s.base - 4 + audioLevel * 0.25}px`,
+            transition: "all 50ms ease-out",
+          }}
+        />
+        {/* Button */}
+        <button
+          ref={buttonRef}
+          type="button"
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          className={`${s.container} rounded-full bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center shadow-lg shadow-violet-500/30 touch-none select-none z-10`}
+        >
+          <MicIcon />
+        </button>
+      </div>
+    );
+  }
+
+  // Idle and Transcribing states
   return (
     <button
+      ref={buttonRef}
       type="button"
-      onMouseDown={handleStart}
-      onMouseUp={handleEnd}
-      onMouseLeave={handleEnd}
-      onTouchStart={handleStart}
-      onTouchEnd={handleEnd}
-      disabled={disabled || isProcessing}
-      className="transition-all touch-none select-none"
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      disabled={disabled || state === "transcribing"}
+      className={`${s.container} rounded-full bg-gradient-to-br from-violet-500 to-violet-600 hover:from-violet-600 hover:to-violet-700 flex items-center justify-center shadow-lg shadow-violet-500/30 transition-all active:scale-95 touch-none select-none disabled:opacity-70 disabled:cursor-not-allowed`}
     >
-      {isRecording ? (
-        /* Recording state - Pulsing mic with audio rings */
-        <div className="relative flex items-center justify-center w-12 h-12">
-          {/* Live audio rings */}
-          <div
-            className="absolute rounded-full bg-red-500/10"
-            style={{
-              width: `${ringBase + audioLevel * 0.35}px`,
-              height: `${ringBase + audioLevel * 0.35}px`,
-              transition: "all 30ms linear",
-            }}
-          />
-          <div
-            className="absolute rounded-full bg-red-500/25"
-            style={{
-              width: `${ringBase + audioLevel * 0.2}px`,
-              height: `${ringBase + audioLevel * 0.2}px`,
-              transition: "all 30ms linear",
-            }}
-          />
-          {/* Recording indicator */}
-          <div className={`relative ${buttonSize} rounded-full bg-red-500 flex items-center justify-center shadow-lg animate-pulse`}>
-            <svg className={`${iconSize} text-white`} fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
-              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-            </svg>
-          </div>
-        </div>
-      ) : isProcessing ? (
-        /* Transcribing state - Animated waves */
-        <div className="relative flex items-center justify-center w-10 h-10">
-          <div className={`${buttonSize} rounded-full bg-violet-500 flex items-center justify-center`}>
-            <div className="flex items-end gap-0.5 h-3">
-              <div className="w-0.75 bg-white rounded-full animate-sound-wave-1" />
-              <div className="w-0.75 bg-white rounded-full animate-sound-wave-2" />
-              <div className="w-0.75 bg-white rounded-full animate-sound-wave-3" />
-            </div>
-          </div>
-        </div>
+      {state === "transcribing" ? (
+        /* Transcribing - Spinner loader */
+        <svg className={`${s.icon} text-white animate-spin`} fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
       ) : (
-        /* Default state - Mic button */
-        <div className={`${buttonSize} rounded-full bg-violet-500 hover:bg-violet-600 active:scale-110 flex items-center justify-center shadow-md transition-all ${disabled ? "opacity-50" : ""}`}>
-          <svg className={`${iconSize} text-white`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-          </svg>
-        </div>
+        /* Idle - Mic icon */
+        <MicIcon />
       )}
     </button>
   );

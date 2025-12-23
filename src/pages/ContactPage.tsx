@@ -4,10 +4,12 @@ import { contactsApi } from "../api/contacts";
 import { aiApi } from "../api/ai";
 import { Button } from "../components/ui/Button";
 import { Card, CardContent } from "../components/ui/Card";
+import { VoiceRecordButton } from "../components/VoiceRecordButton";
 import { useContacts } from "../hooks/useContacts";
 import { useTranslation } from "../hooks/useTranslation";
 import { useUser } from "../hooks/useUser";
 import { useHaptic } from "../hooks/useHaptic";
+import { useMicPermission } from "../hooks/useMicPermission";
 import type { Contact, Frequency, Language, ContactHistoryEntry } from "../types";
 
 // SVG Icons
@@ -117,15 +119,19 @@ export function ContactPage() {
   const [showContactedModal, setShowContactedModal] = useState(false);
   const [contactedNoteValue, setContactedNoteValue] = useState("");
 
+  // Microphone permission
+  const { hasPermission, requestPermission } = useMicPermission();
+
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [audioLevels, setAudioLevels] = useState<number[]>([0, 0, 0, 0, 0]);
+  const [audioLevel, setAudioLevel] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-  const voiceButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     async function fetchContact() {
@@ -281,10 +287,7 @@ export function ContactPage() {
     }
   };
 
-  // Voice recording handlers - Press and hold to record (like Telegram)
-  const streamRef = useRef<MediaStream | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-
+  // Voice recording functions
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -299,19 +302,17 @@ export function ContactPage() {
       source.connect(analyser);
       analyserRef.current = analyser;
 
-      // Start visualization loop - get single volume level
-      const updateLevels = () => {
+      // Start visualization loop
+      const updateLevel = () => {
         if (!analyserRef.current) return;
         const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
         analyserRef.current.getByteFrequencyData(dataArray);
-
-        // Get average volume level (0-100)
         const avg = (dataArray[1] + dataArray[2] + dataArray[3] + dataArray[4] + dataArray[5]) / 5;
         const level = Math.min(100, (avg / 255) * 100 * 1.5);
-        setAudioLevels([level, 0, 0, 0, 0]);
-        animationFrameRef.current = requestAnimationFrame(updateLevels);
+        setAudioLevel(level);
+        animationFrameRef.current = requestAnimationFrame(updateLevel);
       };
-      updateLevels();
+      updateLevel();
 
       const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
       mediaRecorderRef.current = mediaRecorder;
@@ -325,7 +326,6 @@ export function ContactPage() {
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        // Only transcribe if recording lasted more than 0.5 seconds
         if (audioBlob.size > 1000) {
           await transcribeAudio(audioBlob);
         }
@@ -343,42 +343,28 @@ export function ContactPage() {
   };
 
   const stopRecording = () => {
+    // Stop audio analysis
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
     analyserRef.current = null;
-    setAudioLevels([0, 0, 0, 0, 0]);
+    setAudioLevel(0);
 
-    // Clean up stream and audio context
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
     if (audioContextRef.current) {
       audioContextRef.current.close();
       audioContextRef.current = null;
+    }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
     }
 
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       haptic.tap();
-    }
-  };
-
-  // Handle pointer events for press-and-hold
-  const handleRecordStart = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    if (!isRecording && !isTranscribing) {
-      startRecording();
-    }
-  };
-
-  const handleRecordEnd = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    if (isRecording) {
-      stopRecording();
     }
   };
 
@@ -401,33 +387,7 @@ export function ContactPage() {
     }
   };
 
-  // Attach non-passive touch event listeners for voice button
-  useEffect(() => {
-    const button = voiceButtonRef.current;
-    if (!button || !editingNotes) return;
-
-    const handleTouchStart = (e: TouchEvent) => {
-      e.preventDefault();
-      if (!isRecording && !isTranscribing) {
-        startRecording();
-      }
-    };
-
-    const handleTouchEnd = (e: TouchEvent) => {
-      e.preventDefault();
-      if (isRecording) {
-        stopRecording();
-      }
-    };
-
-    button.addEventListener("touchstart", handleTouchStart, { passive: false });
-    button.addEventListener("touchend", handleTouchEnd, { passive: false });
-
-    return () => {
-      button.removeEventListener("touchstart", handleTouchStart);
-      button.removeEventListener("touchend", handleTouchEnd);
-    };
-  }, [editingNotes, isRecording, isTranscribing]);
+  const voiceState = isRecording ? "recording" : isTranscribing ? "transcribing" : "idle";
 
   if (loading) {
     return (
@@ -749,72 +709,18 @@ export function ContactPage() {
                 rows={6}
                 className="w-full px-4 py-3 pr-24 rounded-xl border border-gray-200 dark:border-[#404040] bg-white dark:bg-[#1f1f1f] text-gray-900 dark:text-gray-100 focus:outline-none focus:border-amber-500 resize-y"
               />
-              {/* Voice Recording Button - Press and hold to record (Telegram style) */}
-              <button
-                ref={voiceButtonRef}
-                type="button"
-                onMouseDown={handleRecordStart}
-                onMouseUp={handleRecordEnd}
-                onMouseLeave={handleRecordEnd}
-                disabled={isTranscribing}
-                className="absolute top-2 right-2 transition-all touch-none select-none"
-              >
-                {isRecording ? (
-                  /* Recording state - Pulsing mic with audio rings */
-                  <div className="relative flex items-center justify-center w-14 h-14">
-                    {/* Live audio rings - Telegram style */}
-                    <div
-                      className="absolute rounded-full bg-red-500/10"
-                      style={{
-                        width: `${44 + audioLevels[0] * 0.5}px`,
-                        height: `${44 + audioLevels[0] * 0.5}px`,
-                        transition: 'all 50ms ease-out',
-                      }}
-                    />
-                    <div
-                      className="absolute rounded-full bg-red-500/20"
-                      style={{
-                        width: `${40 + audioLevels[0] * 0.35}px`,
-                        height: `${40 + audioLevels[0] * 0.35}px`,
-                        transition: 'all 50ms ease-out',
-                      }}
-                    />
-                    <div
-                      className="absolute rounded-full bg-red-500/30"
-                      style={{
-                        width: `${36 + audioLevels[0] * 0.2}px`,
-                        height: `${36 + audioLevels[0] * 0.2}px`,
-                        transition: 'all 50ms ease-out',
-                      }}
-                    />
-                    {/* Recording indicator */}
-                    <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-lg shadow-red-500/30">
-                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
-                        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-                      </svg>
-                    </div>
-                  </div>
-                ) : isTranscribing ? (
-                  /* Transcribing state - Animated waves */
-                  <div className="relative flex items-center justify-center w-14 h-14">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
-                      <div className="flex items-end gap-1 h-4">
-                        <div className="w-1 bg-white rounded-full animate-sound-wave-1" />
-                        <div className="w-1 bg-white rounded-full animate-sound-wave-2" />
-                        <div className="w-1 bg-white rounded-full animate-sound-wave-3" />
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  /* Default state - Mic button */
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-violet-600 hover:from-violet-600 hover:to-violet-700 active:scale-110 flex items-center justify-center shadow-lg shadow-violet-500/30 transition-all">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                    </svg>
-                  </div>
-                )}
-              </button>
+              {/* Voice Recording Button */}
+              <div className="absolute top-2 right-2">
+                <VoiceRecordButton
+                  state={voiceState}
+                  size="sm"
+                  audioLevel={audioLevel}
+                  hasPermission={hasPermission}
+                  onRequestPermission={requestPermission}
+                  onRecordStart={startRecording}
+                  onRecordEnd={stopRecording}
+                />
+              </div>
             </div>
             <div className="flex gap-2 mt-4">
               <Button

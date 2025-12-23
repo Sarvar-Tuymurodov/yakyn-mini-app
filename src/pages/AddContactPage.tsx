@@ -3,7 +3,9 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useContacts } from "../hooks/useContacts";
 import { useUser } from "../hooks/useUser";
 import { useTranslation } from "../hooks/useTranslation";
+import { useMicPermission } from "../hooks/useMicPermission";
 import { Button } from "../components/ui/Button";
+import { VoiceRecordButton } from "../components/VoiceRecordButton";
 import { aiApi } from "../api/ai";
 import type { Frequency, Language } from "../types";
 
@@ -47,17 +49,19 @@ export function AddContactPage() {
     if (birthdayParam) setBirthday(birthdayParam);
   }, [searchParams]);
 
+  // Microphone permission
+  const { hasPermission, requestPermission } = useMicPermission();
+
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [audioLevels, setAudioLevels] = useState<number[]>([0, 0, 0, 0, 0]);
+  const [audioLevel, setAudioLevel] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const voiceButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,7 +89,6 @@ export function AddContactPage() {
     }
   };
 
-  // Voice recording handlers - Press and hold to record
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -100,19 +103,17 @@ export function AddContactPage() {
       source.connect(analyser);
       analyserRef.current = analyser;
 
-      // Start visualization loop - get single volume level
-      const updateLevels = () => {
+      // Start visualization loop
+      const updateLevel = () => {
         if (!analyserRef.current) return;
         const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
         analyserRef.current.getByteFrequencyData(dataArray);
-
-        // Get average volume level (0-100)
         const avg = (dataArray[1] + dataArray[2] + dataArray[3] + dataArray[4] + dataArray[5]) / 5;
         const level = Math.min(100, (avg / 255) * 100 * 1.5);
-        setAudioLevels([level, 0, 0, 0, 0]);
-        animationFrameRef.current = requestAnimationFrame(updateLevels);
+        setAudioLevel(level);
+        animationFrameRef.current = requestAnimationFrame(updateLevel);
       };
-      updateLevels();
+      updateLevel();
 
       const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
       mediaRecorderRef.current = mediaRecorder;
@@ -126,7 +127,6 @@ export function AddContactPage() {
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        // Only transcribe if recording lasted more than 0.5 seconds
         if (audioBlob.size > 1000) {
           await transcribeAudio(audioBlob);
         }
@@ -143,21 +143,22 @@ export function AddContactPage() {
   };
 
   const stopRecording = () => {
+    // Stop audio analysis
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
     analyserRef.current = null;
-    setAudioLevels([0, 0, 0, 0, 0]);
+    setAudioLevel(0);
 
-    // Clean up stream and audio context
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
     if (audioContextRef.current) {
       audioContextRef.current.close();
       audioContextRef.current = null;
+    }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
     }
 
     if (mediaRecorderRef.current && isRecording) {
@@ -165,49 +166,6 @@ export function AddContactPage() {
       setIsRecording(false);
     }
   };
-
-  // Press and hold handlers
-  const handleRecordStart = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    if (!isRecording && !isTranscribing) {
-      startRecording();
-    }
-  };
-
-  const handleRecordEnd = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    if (isRecording) {
-      stopRecording();
-    }
-  };
-
-  // Attach non-passive touch event listeners
-  useEffect(() => {
-    const button = voiceButtonRef.current;
-    if (!button) return;
-
-    const handleTouchStart = (e: TouchEvent) => {
-      e.preventDefault();
-      if (!isRecording && !isTranscribing) {
-        startRecording();
-      }
-    };
-
-    const handleTouchEnd = (e: TouchEvent) => {
-      e.preventDefault();
-      if (isRecording) {
-        stopRecording();
-      }
-    };
-
-    button.addEventListener("touchstart", handleTouchStart, { passive: false });
-    button.addEventListener("touchend", handleTouchEnd, { passive: false });
-
-    return () => {
-      button.removeEventListener("touchstart", handleTouchStart);
-      button.removeEventListener("touchend", handleTouchEnd);
-    };
-  }, [isRecording, isTranscribing]);
 
   const transcribeAudio = async (audioBlob: Blob) => {
     setIsTranscribing(true);
@@ -227,6 +185,8 @@ export function AddContactPage() {
       setIsTranscribing(false);
     }
   };
+
+  const voiceState = isRecording ? "recording" : isTranscribing ? "transcribing" : "idle";
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#1f1f1f]">
@@ -338,72 +298,17 @@ export function AddContactPage() {
               className="w-full px-4 py-3 pr-16 border border-gray-200 dark:border-[#404040] rounded-xl bg-white dark:bg-[#2d2d2d] text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-all resize-none"
               rows={3}
             />
-            {/* Voice Recording Button - Press and hold (Telegram style) */}
-            <button
-              ref={voiceButtonRef}
-              type="button"
-              onMouseDown={handleRecordStart}
-              onMouseUp={handleRecordEnd}
-              onMouseLeave={handleRecordEnd}
-              disabled={isTranscribing}
-              className="absolute top-2 right-2 transition-all touch-none select-none"
-            >
-              {isRecording ? (
-                /* Recording state - Mic with live audio rings */
-                <div className="relative flex items-center justify-center w-14 h-14">
-                  {/* Live audio rings - Telegram style */}
-                  <div
-                    className="absolute rounded-full bg-red-500/10"
-                    style={{
-                      width: `${44 + audioLevels[0] * 0.5}px`,
-                      height: `${44 + audioLevels[0] * 0.5}px`,
-                      transition: 'all 50ms ease-out',
-                    }}
-                  />
-                  <div
-                    className="absolute rounded-full bg-red-500/20"
-                    style={{
-                      width: `${40 + audioLevels[0] * 0.35}px`,
-                      height: `${40 + audioLevels[0] * 0.35}px`,
-                      transition: 'all 50ms ease-out',
-                    }}
-                  />
-                  <div
-                    className="absolute rounded-full bg-red-500/30"
-                    style={{
-                      width: `${36 + audioLevels[0] * 0.2}px`,
-                      height: `${36 + audioLevels[0] * 0.2}px`,
-                      transition: 'all 50ms ease-out',
-                    }}
-                  />
-                  {/* Recording mic icon */}
-                  <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-lg shadow-red-500/30">
-                    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
-                      <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-                    </svg>
-                  </div>
-                </div>
-              ) : isTranscribing ? (
-                /* Transcribing state - Animated waves */
-                <div className="relative flex items-center justify-center w-14 h-14">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
-                    <div className="flex items-end gap-1 h-4">
-                      <div className="w-1 bg-white rounded-full animate-sound-wave-1" />
-                      <div className="w-1 bg-white rounded-full animate-sound-wave-2" />
-                      <div className="w-1 bg-white rounded-full animate-sound-wave-3" />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                /* Default state - Mic button */
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-violet-600 hover:from-violet-600 hover:to-violet-700 flex items-center justify-center shadow-lg shadow-violet-500/30 transition-all active:scale-95">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                  </svg>
-                </div>
-              )}
-            </button>
+            <div className="absolute top-2 right-2">
+              <VoiceRecordButton
+                state={voiceState}
+                size="sm"
+                audioLevel={audioLevel}
+                hasPermission={hasPermission}
+                onRequestPermission={requestPermission}
+                onRecordStart={startRecording}
+                onRecordEnd={stopRecording}
+              />
+            </div>
           </div>
         </div>
 
@@ -413,8 +318,6 @@ export function AddContactPage() {
             {error}
           </div>
         )}
-
-        {/* Spacer for fixed button */}
       </form>
 
       {/* Fixed Submit Button */}
