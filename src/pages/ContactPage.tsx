@@ -125,6 +125,7 @@ export function ContactPage() {
   const audioChunksRef = useRef<Blob[]>([]);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const voiceButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     async function fetchContact() {
@@ -399,6 +400,34 @@ export function ContactPage() {
       setIsTranscribing(false);
     }
   };
+
+  // Attach non-passive touch event listeners for voice button
+  useEffect(() => {
+    const button = voiceButtonRef.current;
+    if (!button || !editingNotes) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      if (!isRecording && !isTranscribing) {
+        startRecording();
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
+      if (isRecording) {
+        stopRecording();
+      }
+    };
+
+    button.addEventListener("touchstart", handleTouchStart, { passive: false });
+    button.addEventListener("touchend", handleTouchEnd, { passive: false });
+
+    return () => {
+      button.removeEventListener("touchstart", handleTouchStart);
+      button.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [editingNotes, isRecording, isTranscribing]);
 
   if (loading) {
     return (
@@ -720,39 +749,46 @@ export function ContactPage() {
                 rows={6}
                 className="w-full px-4 py-3 pr-24 rounded-xl border border-gray-200 dark:border-[#404040] bg-white dark:bg-[#1f1f1f] text-gray-900 dark:text-gray-100 focus:outline-none focus:border-amber-500 resize-y"
               />
-              {/* Voice Recording Button - Press and hold to record (like Telegram) */}
+              {/* Voice Recording Button - Press and hold to record (Telegram style) */}
               <button
+                ref={voiceButtonRef}
                 type="button"
                 onMouseDown={handleRecordStart}
                 onMouseUp={handleRecordEnd}
                 onMouseLeave={handleRecordEnd}
-                onTouchStart={handleRecordStart}
-                onTouchEnd={handleRecordEnd}
                 disabled={isTranscribing}
-                className="absolute top-2.5 right-2.5 transition-all touch-none select-none"
+                className="absolute top-2 right-2 transition-all touch-none select-none"
               >
                 {isRecording ? (
                   /* Recording state - Pulsing mic with audio rings */
-                  <div className="relative flex items-center justify-center w-12 h-12">
-                    {/* Live audio rings */}
+                  <div className="relative flex items-center justify-center w-14 h-14">
+                    {/* Live audio rings - Telegram style */}
                     <div
                       className="absolute rounded-full bg-red-500/10"
                       style={{
-                        width: `${32 + audioLevels[0] * 0.35}px`,
-                        height: `${32 + audioLevels[0] * 0.35}px`,
-                        transition: 'all 30ms linear',
+                        width: `${44 + audioLevels[0] * 0.5}px`,
+                        height: `${44 + audioLevels[0] * 0.5}px`,
+                        transition: 'all 50ms ease-out',
                       }}
                     />
                     <div
-                      className="absolute rounded-full bg-red-500/25"
+                      className="absolute rounded-full bg-red-500/20"
                       style={{
-                        width: `${32 + audioLevels[0] * 0.2}px`,
-                        height: `${32 + audioLevels[0] * 0.2}px`,
-                        transition: 'all 30ms linear',
+                        width: `${40 + audioLevels[0] * 0.35}px`,
+                        height: `${40 + audioLevels[0] * 0.35}px`,
+                        transition: 'all 50ms ease-out',
+                      }}
+                    />
+                    <div
+                      className="absolute rounded-full bg-red-500/30"
+                      style={{
+                        width: `${36 + audioLevels[0] * 0.2}px`,
+                        height: `${36 + audioLevels[0] * 0.2}px`,
+                        transition: 'all 50ms ease-out',
                       }}
                     />
                     {/* Recording indicator */}
-                    <div className="relative w-10 h-10 rounded-full bg-red-500 flex items-center justify-center shadow-lg animate-pulse">
+                    <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-lg shadow-red-500/30">
                       <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
                         <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
@@ -761,19 +797,19 @@ export function ContactPage() {
                   </div>
                 ) : isTranscribing ? (
                   /* Transcribing state - Animated waves */
-                  <div className="relative flex items-center justify-center w-10 h-10">
-                    <div className="w-8 h-8 rounded-full bg-violet-500 flex items-center justify-center">
-                      <div className="flex items-end gap-0.5 h-3">
-                        <div className="w-0.75 bg-white rounded-full animate-sound-wave-1" />
-                        <div className="w-0.75 bg-white rounded-full animate-sound-wave-2" />
-                        <div className="w-0.75 bg-white rounded-full animate-sound-wave-3" />
+                  <div className="relative flex items-center justify-center w-14 h-14">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                      <div className="flex items-end gap-1 h-4">
+                        <div className="w-1 bg-white rounded-full animate-sound-wave-1" />
+                        <div className="w-1 bg-white rounded-full animate-sound-wave-2" />
+                        <div className="w-1 bg-white rounded-full animate-sound-wave-3" />
                       </div>
                     </div>
                   </div>
                 ) : (
-                  /* Default state - Mic button with hint */
-                  <div className="w-8 h-8 rounded-full bg-violet-500 hover:bg-violet-600 active:scale-110 flex items-center justify-center shadow-md transition-all">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  /* Default state - Mic button */
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-violet-600 hover:from-violet-600 hover:to-violet-700 active:scale-110 flex items-center justify-center shadow-lg shadow-violet-500/30 transition-all">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                     </svg>
                   </div>
