@@ -7,6 +7,7 @@ import { AddContactPage } from "./pages/AddContactPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { setInitData } from "./api/client";
 import { userApi } from "./api/user";
+import { analyticsApi } from "./api/analytics";
 import type { Language } from "./types";
 
 function LanguageSelectionScreen({ onSelect }: { onSelect: (lang: Language) => void }) {
@@ -195,6 +196,8 @@ function TelegramProvider({ children }: { children: React.ReactNode }) {
       setTimeout(() => {
         setNeedsOnboarding(!isOnboarded);
         setReady(true);
+        // Track app opened
+        analyticsApi.track("app_opened");
       }, remaining);
     };
 

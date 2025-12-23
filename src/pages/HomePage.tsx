@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { contactsApi } from "../api/contacts";
 import yakynLogo from "../assets/yakyn-logo.svg";
@@ -202,7 +202,7 @@ export function HomePage() {
         <div className="flex items-center justify-between">
           <img src={yakynLogo} alt="Yakyn" className="w-7 h-7" />
           <div className="flex items-center gap-1">
-            {canImportContacts && (
+            {/* {canImportContacts && (
               <button
                 className="w-9 h-9 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#404040] rounded-full transition-colors disabled:opacity-50"
                 onClick={handleImportContacts}
@@ -217,7 +217,7 @@ export function HomePage() {
                   <ImportIcon />
                 )}
               </button>
-            )}
+            )} */}
             <button
               className="w-9 h-9 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#404040] rounded-full transition-colors"
               onClick={() => navigate("/settings")}
