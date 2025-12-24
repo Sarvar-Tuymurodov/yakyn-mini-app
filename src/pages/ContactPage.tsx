@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { contactsApi } from "../api/contacts";
 import { aiApi } from "../api/ai";
@@ -9,7 +9,7 @@ import { useContacts } from "../hooks/useContacts";
 import { useTranslation } from "../hooks/useTranslation";
 import { useUser } from "../hooks/useUser";
 import { useHaptic } from "../hooks/useHaptic";
-import { useMicPermission } from "../hooks/useMicPermission";
+import { useVoiceRecording } from "../hooks/useVoiceRecording";
 import type { Contact, Frequency, Language, ContactHistoryEntry } from "../types";
 
 // SVG Icons
@@ -119,19 +119,28 @@ export function ContactPage() {
   const [showContactedModal, setShowContactedModal] = useState(false);
   const [contactedNoteValue, setContactedNoteValue] = useState("");
 
-  // Microphone permission
-  const { hasPermission, requestPermission } = useMicPermission();
+  // Voice recording with transcription (appends to notes)
+  const handleTranscribe = useCallback(async (audioBlob: Blob) => {
+    const base64 = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
+      reader.readAsDataURL(audioBlob);
+    });
+    const response = await aiApi.transcribeAudio(base64);
+    if (response.text) {
+      setNotesValue(prev => prev ? `${prev}\n${response.text}` : response.text);
+    }
+  }, []);
 
-  // Voice recording state
-  const [isRecording, setIsRecording] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const [audioLevel, setAudioLevel] = useState(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
+  const {
+    isRecording,
+    isProcessing: isTranscribing,
+    audioLevel,
+    hasPermission,
+    requestPermission,
+    startRecording,
+    stopRecording,
+  } = useVoiceRecording({ onTranscribe: handleTranscribe });
 
   useEffect(() => {
     async function fetchContact() {
@@ -284,106 +293,6 @@ export function ContactPage() {
       setTimeout(() => setCopiedIndex(null), 2000);
     } catch (error) {
       console.error("Failed to copy:", error);
-    }
-  };
-
-  // Voice recording functions
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-
-      // Setup audio analyser for visualization
-      const audioContext = new AudioContext();
-      audioContextRef.current = audioContext;
-      const source = audioContext.createMediaStreamSource(stream);
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 32;
-      source.connect(analyser);
-      analyserRef.current = analyser;
-
-      // Start visualization loop
-      const updateLevel = () => {
-        if (!analyserRef.current) return;
-        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-        analyserRef.current.getByteFrequencyData(dataArray);
-        const avg = (dataArray[1] + dataArray[2] + dataArray[3] + dataArray[4] + dataArray[5]) / 5;
-        const level = Math.min(100, (avg / 255) * 100 * 1.5);
-        setAudioLevel(level);
-        animationFrameRef.current = requestAnimationFrame(updateLevel);
-      };
-      updateLevel();
-
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        if (audioBlob.size > 1000) {
-          await transcribeAudio(audioBlob);
-        }
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-      haptic.tap();
-    } catch (error) {
-      console.error("Failed to start recording:", error);
-      alert(language === "ru"
-        ? "Не удалось получить доступ к микрофону"
-        : "Mikrofonga ruxsat olinmadi");
-    }
-  };
-
-  const stopRecording = () => {
-    // Stop audio analysis
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-    analyserRef.current = null;
-    setAudioLevel(0);
-
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      haptic.tap();
-    }
-  };
-
-  const transcribeAudio = async (audioBlob: Blob) => {
-    setIsTranscribing(true);
-    try {
-      const reader = new FileReader();
-      reader.readAsDataURL(audioBlob);
-      reader.onloadend = async () => {
-        const base64 = (reader.result as string).split(",")[1];
-        const response = await aiApi.transcribeAudio(base64);
-        if (response.text) {
-          setNotesValue(prev => prev ? `${prev}\n${response.text}` : response.text);
-        }
-        setIsTranscribing(false);
-      };
-    } catch (error) {
-      console.error("Failed to transcribe:", error);
-      setIsTranscribing(false);
     }
   };
 

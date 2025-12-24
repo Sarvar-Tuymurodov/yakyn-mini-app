@@ -1,9 +1,11 @@
 import { useState, useRef, useCallback } from "react";
 import { useMicPermission } from "./useMicPermission";
+import { useHaptic } from "./useHaptic";
 
 interface UseVoiceRecordingOptions {
   minDuration?: number;
   onTranscribe?: (audioBlob: Blob) => Promise<void>;
+  enableHaptics?: boolean;
 }
 
 interface UseVoiceRecordingReturn {
@@ -19,10 +21,11 @@ interface UseVoiceRecordingReturn {
 export function useVoiceRecording(
   options: UseVoiceRecordingOptions = {}
 ): UseVoiceRecordingReturn {
-  const { minDuration = 500, onTranscribe } = options;
+  const { minDuration = 500, onTranscribe, enableHaptics = true } = options;
 
   // Use shared permission hook
   const { hasPermission, requestPermission } = useMicPermission();
+  const haptic = useHaptic();
 
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -106,11 +109,13 @@ export function useVoiceRecording(
 
       mediaRecorder.start();
       setIsRecording(true);
+      if (enableHaptics) haptic.impact("medium");
     } catch (error) {
       console.error("Failed to start recording:", error);
+      if (enableHaptics) haptic.error();
       throw error;
     }
-  }, [minDuration, onTranscribe]);
+  }, [minDuration, onTranscribe, enableHaptics, haptic]);
 
   const stopRecording = useCallback(() => {
     cleanup();
@@ -118,8 +123,9 @@ export function useVoiceRecording(
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      if (enableHaptics) haptic.tap();
     }
-  }, [cleanup, isRecording]);
+  }, [cleanup, isRecording, enableHaptics, haptic]);
 
   return {
     isRecording,
